@@ -8,14 +8,14 @@
 .inventory-tabs button {
   width: auto;
   padding: 10px 14px;
-  border: 1px solid var(--border, #dedbd4);
+  border: 1px solid var(--border, var(--surface-soft));
   border-radius: 8px;
-  background: white;
+  background: var(--surface-raised);
   color: inherit;
 }
 .inventory-tabs button.active {
-  background: #263d32;
-  color: white;
+  background: var(--accent);
+  color: var(--surface-raised);
 }
 .inventory-toolbar {
   display: flex;
@@ -28,8 +28,8 @@
   flex: 1;
 }
 .inventory-panel {
-  background: white;
-  border: 1px solid #e5e3db;
+  background: var(--surface-raised);
+  border: 1px solid var(--surface-soft);
   border-radius: 14px;
   padding: 24px;
   margin: 16px 0;
@@ -54,11 +54,11 @@
 }
 .inventory-fields small {
   grid-column: 1/-1;
-  color: #687069;
+  color: var(--text-muted);
 }
 .inventory-line {
   padding: 20px 0;
-  border-bottom: 1px solid #e4e6df;
+  border-bottom: 1px solid var(--surface);
   margin-bottom: 18px;
 }
 .inventory-check {
@@ -82,13 +82,13 @@
 .inventory-table th,
 .inventory-table td {
   padding: 12px;
-  border-bottom: 1px solid #e9e8e3;
+  border-bottom: 1px solid var(--surface);
   vertical-align: top;
 }
 .inventory-table small,
 .inventory-stock small {
   display: block;
-  color: #70786e;
+  color: var(--text-muted);
   margin-top: 5px;
 }
 .inventory-table input {
@@ -110,7 +110,7 @@
 }
 .inventory-stock {
   padding: 20px 0;
-  border-bottom: 1px solid #e5e3db;
+  border-bottom: 1px solid var(--surface-soft);
 }
 .inventory-stock h3 {
   margin-top: 0;
@@ -145,7 +145,7 @@
   width: auto;
 }
 .inventory-panel .muted {
-  color: #677369;
+  color: var(--text-muted);
 }
 @media (max-width: 850px) {
   .inventory-stats {

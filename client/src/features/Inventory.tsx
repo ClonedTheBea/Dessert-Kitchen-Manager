@@ -54,15 +54,31 @@ const tabs = [
   "Movement History",
 ];
 
-export default function Inventory({ state }: { state: State }) {
+export default function Inventory({
+  state,
+  initialAction = "",
+}: {
+  state: State;
+  initialAction?: string;
+}) {
   const [stock, setStock] = useState<InventoryState>(),
     [error, setError] = useState(""),
-    [tab, setTab] = useState("Overview"),
+    [tab, setTab] = useState(
+      initialAction === "shopping"
+        ? "Shopping Lists"
+        : initialAction === "purchase"
+          ? "Purchases"
+          : initialAction === "production"
+            ? "Production"
+            : "Stock on Hand",
+    ),
     [location, setLocation] = useState("home"),
     [query, setQuery] = useState(""),
     [sort, setSort] = useState("name"),
     [attention, setAttention] = useState(false),
-    [form, setForm] = useState(""),
+    [form, setForm] = useState(
+      ["purchase", "production"].includes(initialAction) ? initialAction : "",
+    ),
     [action, setAction] = useState<Action>(),
     [count, setCount] = useState<Count>(),
     [trace, setTrace] = useState<Lot>(),
@@ -91,7 +107,7 @@ export default function Inventory({ state }: { state: State }) {
   if (!stock)
     return (
       <>
-        <h1>Inventory</h1>
+        <h1>Your kitchen stock</h1>
 
         <ErrorBox error={error} />
 
@@ -197,7 +213,7 @@ export default function Inventory({ state }: { state: State }) {
         <div>
           <div className="eyebrow">FROM DELIVERY TO DESSERT</div>
 
-          <h1>Inventory</h1>
+          <h1>Your kitchen stock</h1>
 
           <p>Purchase, prepare, count and trace your kitchen stock.</p>
         </div>
@@ -228,25 +244,37 @@ export default function Inventory({ state }: { state: State }) {
       </div>
 
       <nav className="inventory-tabs" aria-label="Inventory views">
-        {tabs.map((t) => (
+        {tabs
+          .filter((t) => t !== "Movement History")
+          .map((t) => (
+            <button
+              key={t}
+
+              className={tab === t ? "active" : ""}
+
+              onClick={async () => {
+                if (await flushEdits()) {
+                  setTab(t);
+
+                  setQuery("");
+
+                  setAttention(false);
+                }
+              }}
+            >
+              {t}
+            </button>
+          ))}
+        <details className="stock-more">
+          <summary>More</summary>
           <button
-            key={t}
-
-            className={tab === t ? "active" : ""}
-
             onClick={async () => {
-              if (await flushEdits()) {
-                setTab(t);
-
-                setQuery("");
-
-                setAttention(false);
-              }
+              if (await flushEdits()) setTab("Movement History");
             }}
           >
-            {t}
+            Movement History
           </button>
-        ))}
+        </details>
       </nav>
 
       {tab === "Overview" && (
@@ -280,7 +308,7 @@ export default function Inventory({ state }: { state: State }) {
             />
           </div>
 
-          <p className="muted">{stock.valuationMethod}</p>
+          <p className="shell-caption">{stock.valuationMethod}</p>
 
           <div className="inventory-columns">
             <section className="inventory-panel">
@@ -538,7 +566,7 @@ export default function Inventory({ state }: { state: State }) {
           <h2>Production batches</h2>
 
           <button className="primary" onClick={() => setForm("production")}>
-            Record production / resume draft
+            Make a batch / resume draft
           </button>
 
           {productionOps.map((o) => {
@@ -741,7 +769,12 @@ export default function Inventory({ state }: { state: State }) {
             details or record a reversal.
           </p>
 
-          <div className="inventory-table">
+          <div
+            className="inventory-table"
+            tabIndex={0}
+            role="region"
+            aria-label="Scrollable stock table"
+          >
             <table>
               <thead>
                 <tr>

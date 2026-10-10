@@ -1,6 +1,6 @@
 # Dessert Kitchen Manager
 
-A private Windows app for costing your first cheesecake pots and brownies and planning a UK dessert kitchen. **Sprint 2 inventory is implemented and ready for owner acceptance.** The planner remains estimates; Inventory records actual purchases, production, counts and waste. See the [Sprint 2 handover and acceptance checklist](docs/SPRINT-2.md). Sprint 1.1.1 is preserved at the `sprint-1.1.1-accepted` tag.
+A private Windows app for recipes, stock and dessert-kitchen planning. **Sprint 2.1 UX & Visual Redesign is ready for owner review.** Home, Recipes, Stock and Money share an Apiary-derived plum shell and light content cards. See the [redesign handover, screenshots and acceptance checklist](docs/SPRINT-2.1.md). The backend calculations and stock ledger are preserved. Sprint 3 has not begun.
 
 ## Start
 
@@ -18,18 +18,18 @@ Open **http://127.0.0.1:5080**. Create your owner password (12+ characters) on f
 
 ## Enter your first batch
 
-1. Open **Ingredients → Suppliers** and add your real supplier.
-2. Add or edit your ingredient. For cream cheese, use `g` as the base unit.
-3. Open **Prices & history**. Enter a 280 g pack at £3.25. Leave “Illustrative price” unticked for an actual quote; VAT recovery should be off when not registered.
-4. Open **Recipes → Create a recipe**. Set batch yield, add 75 g cream cheese and your other ingredients, plus one pot/lid per portion.
-5. Select **Calculate current costs**. The cream cheese line costs £0.87 after rounding. Set selling price and target margin. Edits save as a working draft; use **Publish / Finalise version** to create the immutable cost snapshot.
-6. Use **Financial planner** for platform fees and fixed costs. The starting £21 basket, £5 variable cost, 30% commission and 20% unrecovered commission VAT give **£8.44 contribution/order** and **163 orders/month** to cover £1,375 fixed costs.
+1. Choose **Home → Add ingredient**. Enter the ingredient, supplier (or create one inline), pack size, unit and purchase price together.
+2. Confirm **Add ingredient & price**. Unit costs use the existing C# decimal/VAT calculation. This adds a quote; receive actual stock separately.
+3. Use **Recipes → Ingredients → Update price** for a later quote. Previous prices remain in the expandable history.
+4. Open **Recipes → Create a recipe**. Set the yield and ingredients, including packaging. Use **Method** for numbered preparation steps.
+5. Use **Cost & pricing** to inspect calculated costs and selling-price assumptions. **Publish recipe version** creates the immutable snapshot; ordinary edits only update the working draft.
+6. Open **Money** for contribution, break-even and projected profit first; expand assumptions and comparisons as needed. Scenario edits autosave.
 
 Owner hours (20/week), desired pay (£12/hour), orders (20/evening), investment (£5,000) and recovery period (24 months) are additional editable sample assumptions, not business facts.
 
 ## Record actual stock
 
-Open **Inventory → Purchases** to receive real purchases against existing ingredients and suppliers. Drafts autosave without affecting stock. Confirm a receipt, then use **Production** to preview shortages and record completed batches. Review supplier/production dates and evidence before using stock. **Finished Products**, **Stocktake**, **Waste**, **Shopping Lists** and **Movement History** provide the rest of the workflow. Choose the appropriate testing/commercial location. All illustrative acceptance data was kept out of the live database.
+Use **Home → Record purchase** or **Stock → Purchases** to receive real purchases against existing ingredients and suppliers. Drafts autosave without affecting stock. Confirm a receipt, then use **Production** to preview shortages and record completed batches. Review supplier/production dates and evidence before using stock. **Finished Products**, **Stocktake**, **Waste**, **Shopping Lists** and **More → Movement History** provide the rest of the workflow. Choose the appropriate testing/commercial location. All illustrative acceptance data was kept out of the live database.
 
 ## Available functionality
 

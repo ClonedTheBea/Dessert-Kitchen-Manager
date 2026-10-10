@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
-import { login } from "./login";
+import { login, navigate } from "./login";
 import type {
   InventoryState,
   ProductionPreview,
@@ -17,7 +17,7 @@ async function stock(page: Page): Promise<InventoryState> {
 async function nav(page: Page) {
   if (await page.getByRole("button", { name: "Toggle navigation" }).isVisible())
     await page.getByRole("button", { name: "Toggle navigation" }).click();
-  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  await navigate(page, "Inventory");
 }
 async function tab(page: Page, name: string) {
   await page
@@ -46,6 +46,7 @@ async function purchase(
     .getByLabel("Supplier", { exact: true })
     .selectOption("sample-supplier");
   await d.getByLabel("Location", { exact: true }).selectOption(locationId);
+  await d.getByText("Receipt reference & notes", { exact: true }).click();
   await d.getByLabel("Receipt reference").fill(reference);
   for (let i = 0; i < lines.length; i++) {
     if (i) await d.getByRole("button", { name: "Add purchase line" }).click();
@@ -57,6 +58,7 @@ async function purchase(
     await section
       .getByLabel("Actual price per pack (£)")
       .fill(String(line.price));
+    await section.getByText(/Batch reference & date review/).click();
     await section
       .getByLabel("Supplier batch / lot reference")
       .fill(`${reference}-${line.id}`);
@@ -143,12 +145,17 @@ for (const width of [1280, 390])
     );
     await tab(page, "Production");
     await page
-      .getByRole("button", { name: "Record production / resume draft" })
+      .getByRole("button", { name: "Make a batch / resume draft" })
       .click();
     let d = page.getByRole("dialog");
     await d.getByLabel("Recipe", { exact: true }).selectOption("lemon-pot");
     await d.getByLabel("Recipe version").selectOption("1");
     await d.getByLabel(/Planned output/).fill("4");
+    await d
+      .getByText("Adjust yield, costs, location or batch details", {
+        exact: true,
+      })
+      .click();
     await d.getByLabel("Actual finished yield").fill("4");
     await d.getByLabel("Consume from").selectOption(location.id);
     await d.getByLabel("Finished stock location").selectOption(location.id);
@@ -230,7 +237,9 @@ for (const width of [1280, 390])
     await page.getByLabel("Recipe version").selectOption("1");
     await page.getByLabel(/Planned output/).fill("4");
     const row = page.getByRole("row").filter({ hasText: "Cream cheese" });
-    await expect(row).toContainText("300 / 260 / 40");
+    await expect(row.getByRole("cell").nth(1)).toHaveText("300 g");
+    await expect(row.getByRole("cell").nth(2)).toHaveText("260 g");
+    await expect(row.getByRole("cell").nth(3)).toHaveText("40 g");
     await expect(page.locator(".shopping-print .save-status")).toContainText(
       "Draft saved",
     );
@@ -287,7 +296,9 @@ test("purchase draft survives reopening and a duplicate confirmation cannot add 
   await d.getByLabel("Ingredient or packaging").selectOption("cream-cheese");
   await d.getByLabel("Quantity per pack").fill("280");
   await d.getByLabel("Actual price per pack (£)").fill("3.25");
+  await d.getByText("Receipt reference & notes", { exact: true }).click();
   await d.getByLabel("Receipt reference").fill("Draft survives reopen");
+  await d.getByText(/Batch reference & date review/).click();
   await dateReview(d.locator(".inventory-line"));
   await expect(d.locator(".save-status")).toContainText("Draft saved");
   const count = (await stock(page)).movements.length;

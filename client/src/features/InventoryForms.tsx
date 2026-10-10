@@ -237,6 +237,31 @@ export function PurchaseForm({
     reference: "",
     notes: "",
   };
+  const prefill = (line: PurchaseLine, supplier: string) => {
+    const q = state.prices
+      .filter(
+        (p) =>
+          p.ingredientId === line.ingredientId &&
+          p.supplierId === supplier &&
+          p.effectiveDate <= today(),
+      )
+      .sort(
+        (a, b) =>
+          b.effectiveDate.localeCompare(a.effectiveDate) ||
+          b.recordedAt.localeCompare(a.recordedAt),
+      )[0];
+    return q
+      ? {
+          ...line,
+          packSize: q.packQuantity,
+          unit: q.unit,
+          packPrice: q.packPrice,
+          vatRate: q.vatRate,
+          priceIncludesVat: q.priceIncludesVat,
+          recoverVat: q.recoverVat,
+        }
+      : line;
+  };
   return (
     <DraftForm
       kind="purchase"
@@ -246,6 +271,7 @@ export function PurchaseForm({
     >
       {(v, set) => (
         <>
+          <h3>1. Where did you shop?</h3>
           <div className="inventory-fields">
             <Select
               label="Supplier"
@@ -253,32 +279,32 @@ export function PurchaseForm({
               change={(supplierId) => set({ ...v, supplierId })}
               options={state.suppliers.filter((s) => !s.archived)}
             />
-            <Place
-              locations={inventory.locations}
-              value={v.locationId}
-              change={(locationId) => set({ ...v, locationId })}
-            />
             <Text
               label="Purchase date"
               type="date"
               value={v.date}
               change={(date) => set({ ...v, date })}
             />
-            <Text
-              label="Receipt reference"
-              value={v.reference}
-              change={(reference) => set({ ...v, reference })}
+            <Place
+              locations={inventory.locations}
+              value={v.locationId}
+              change={(locationId) => set({ ...v, locationId })}
             />
           </div>
+          <h3>2. Add your shopping</h3>
+          <p>
+            Choose an item to prefill its latest price for this supplier, then
+            check against your receipt.
+          </p>
           {v.lines.map((l, i) => {
-            const update = (next: PurchaseLine) =>
+            const update = (line: PurchaseLine) =>
               set({
                 ...v,
-                lines: v.lines.map((old, j) => (i === j ? next : old)),
+                lines: v.lines.map((old, j) => (i === j ? line : old)),
               });
             return (
-              <section className="inventory-line" key={i}>
-                <h3>Purchase line {i + 1}</h3>
+              <section className="inventory-line basket-line" key={i}>
+                <h3>Item {i + 1}</h3>
                 <div className="inventory-fields">
                   <Select
                     label="Ingredient or packaging"
@@ -287,18 +313,15 @@ export function PurchaseForm({
                     change={(ingredientId) => {
                       const item = state.ingredients.find(
                         (x) => x.id === ingredientId,
-                      )!;
-                      update({ ...l, ingredientId, unit: item.baseUnit });
+                      );
+                      if (item)
+                        update(
+                          prefill(
+                            { ...l, ingredientId, unit: item.baseUnit },
+                            v.supplierId,
+                          ),
+                        );
                     }}
-                  />
-                  <Select
-                    label="Buying as"
-                    value={l.packLabel}
-                    change={(packLabel) => update({ ...l, packLabel })}
-                    options={[
-                      { id: "pack", name: "Packs / individual units" },
-                      { id: "case", name: "Cases" },
-                    ]}
                   />
                   <Numeric
                     label={
@@ -309,13 +332,6 @@ export function PurchaseForm({
                     value={l.packs}
                     change={(packs) => update({ ...l, packs })}
                   />
-                  {l.packLabel === "case" && (
-                    <Numeric
-                      label="Packs per case"
-                      value={l.packsPerCase}
-                      change={(packsPerCase) => update({ ...l, packsPerCase })}
-                    />
-                  )}
                   <Numeric
                     label="Quantity per pack"
                     value={l.packSize}
@@ -332,6 +348,12 @@ export function PurchaseForm({
                     value={l.packPrice}
                     change={(packPrice) => update({ ...l, packPrice })}
                   />
+                </div>
+                <details>
+                  <summary>
+                    Batch reference & date review{" "}
+                    {l.dateReviewed ? "· reviewed" : "· not reviewed"}
+                  </summary>
                   <Text
                     label="Supplier batch / lot reference"
                     value={l.batchReference}
@@ -339,77 +361,60 @@ export function PurchaseForm({
                       update({ ...l, batchReference })
                     }
                   />
-                </div>
-                <button
-                  className="secondary"
-                  type="button"
-                  onClick={() => {
-                    const q = state.prices
-                      .filter(
-                        (p) =>
-                          p.ingredientId === l.ingredientId &&
-                          p.supplierId === v.supplierId &&
-                          p.effectiveDate <= today(),
-                      )
-                      .sort(
-                        (a, b) =>
-                          b.effectiveDate.localeCompare(a.effectiveDate) ||
-                          b.recordedAt.localeCompare(a.recordedAt),
-                      )[0];
-                    if (q)
-                      update({
-                        ...l,
-                        packSize: q.packQuantity,
-                        unit: q.unit,
-                        packPrice: q.packPrice,
-                        vatRate: q.vatRate,
-                        priceIncludesVat: q.priceIncludesVat,
-                        recoverVat: q.recoverVat,
-                      });
-                  }}
-                  disabled={
-                    !state.prices.some(
-                      (p) =>
-                        p.ingredientId === l.ingredientId &&
-                        p.supplierId === v.supplierId,
-                    )
-                  }
-                >
-                  Use supplier quote — check actual receipt price
-                </button>
+                  <Dates value={l} change={(d) => update({ ...l, ...d })} />
+                </details>
                 <details>
-                  <summary>VAT details</summary>
+                  <summary>Cases, VAT & supplier quote</summary>
                   <div className="inventory-fields">
+                    <Select
+                      label="Buying as"
+                      value={l.packLabel}
+                      change={(packLabel) => update({ ...l, packLabel })}
+                      options={[
+                        { id: "pack", name: "Packs / individual units" },
+                        { id: "case", name: "Cases" },
+                      ]}
+                    />
+                    <Numeric
+                      label="Packs per case"
+                      value={l.packsPerCase}
+                      change={(packsPerCase) => update({ ...l, packsPerCase })}
+                    />
                     <Numeric
                       label="VAT rate (%)"
                       value={l.vatRate}
                       change={(vatRate) => update({ ...l, vatRate })}
                     />
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={l.priceIncludesVat}
-                        onChange={(e) =>
-                          update({ ...l, priceIncludesVat: e.target.checked })
-                        }
-                      />
-                      Pack price includes VAT
-                    </label>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={l.recoverVat}
-                        onChange={(e) =>
-                          update({ ...l, recoverVat: e.target.checked })
-                        }
-                      />
-                      VAT recoverable
-                    </label>
                   </div>
+                  <label className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={l.priceIncludesVat}
+                      onChange={(e) =>
+                        update({ ...l, priceIncludesVat: e.target.checked })
+                      }
+                    />
+                    Pack price includes VAT
+                  </label>
+                  <label className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={l.recoverVat}
+                      onChange={(e) =>
+                        update({ ...l, recoverVat: e.target.checked })
+                      }
+                    />
+                    VAT recoverable
+                  </label>
+                  <button
+                    className="secondary"
+                    onClick={() => update(prefill(l, v.supplierId))}
+                  >
+                    Use supplier quote — check actual receipt price
+                  </button>
                 </details>
-                <Dates value={l} change={(d) => update({ ...l, ...d })} />
                 <button
-                  className="secondary"
+                  className="text-button"
                   disabled={v.lines.length === 1}
                   onClick={() =>
                     set({ ...v, lines: v.lines.filter((_, j) => j !== i) })
@@ -426,12 +431,28 @@ export function PurchaseForm({
           >
             Add purchase line
           </button>
-          <Text
-            label="Purchase notes"
-            value={v.notes}
-            change={(notes) => set({ ...v, notes })}
-          />
-          <PurchaseTotals value={v} />
+          <details>
+            <summary>Receipt reference & notes</summary>
+            <Text
+              label="Receipt reference"
+              value={v.reference}
+              change={(reference) => set({ ...v, reference })}
+            />
+            <Text
+              label="Purchase notes"
+              value={v.notes}
+              change={(notes) => set({ ...v, notes })}
+            />
+          </details>
+          <div className="confirmation-bar">
+            <h3>3. Review your receipt</h3>
+            <PurchaseTotals value={v} />
+            <p>
+              {v.lines.length} items. Confirming adds these quantities to stock
+              once. {v.lines.filter((l) => !l.dateReviewed).length} items still
+              need date review before they can be used in production.
+            </p>
+          </div>
         </>
       )}
     </DraftForm>
@@ -561,7 +582,7 @@ export function ProductionForm({
   done: () => Promise<void>;
   defaultLocation: string;
 }) {
-  const r = state.recipes[0]?.recipe;
+  const r = state.recipes.find((v) => v.recipe.isSellable !== false)?.recipe;
   const initial: Production = {
     operationId: identity(),
     recipeId: r?.id ?? "",
@@ -571,7 +592,7 @@ export function ProductionForm({
     locationId: defaultLocation,
     destinationId: defaultLocation,
     date: today(),
-    batchReference: "",
+    batchReference: `BATCH-${today()}-${identity().slice(0, 6)}`,
     heldRecipeIds: [],
     actualUsage: null,
     extraWastePercent: 0,
@@ -593,96 +614,117 @@ export function ProductionForm({
     >
       {(v, set) => (
         <>
-          <div className="inventory-fields">
-            <RecipeChoice
-              state={state}
-              value={{
-                recipeId: v.recipeId,
-                version: v.version,
-                quantity: v.plannedYield,
-              }}
-              change={(p) =>
-                set({
-                  ...v,
-                  recipeId: p.recipeId,
-                  version: p.version,
-                  plannedYield: p.quantity,
-                  actualYield: p.quantity,
-                  actualUsage: null,
-                  heldRecipeIds: [],
-                })
-              }
-            />
-            <Numeric
-              label="Actual finished yield"
-              value={v.actualYield}
-              change={(actualYield) => set({ ...v, actualYield })}
-            />
-            <Place
-              locations={inventory.locations}
-              label="Consume from"
-              value={v.locationId}
-              change={(locationId) => set({ ...v, locationId })}
-            />
-            <Place
-              locations={inventory.locations}
-              label="Finished stock location"
-              value={v.destinationId}
-              change={(destinationId) => set({ ...v, destinationId })}
-            />
+          <section className="workflow-step">
+            <h3>1. What are you making?</h3>
+            <div className="inventory-fields">
+              <RecipeChoice
+                state={state}
+                value={{
+                  recipeId: v.recipeId,
+                  version: v.version,
+                  quantity: v.plannedYield,
+                }}
+                change={(p) =>
+                  set({
+                    ...v,
+                    recipeId: p.recipeId,
+                    version: p.version,
+                    plannedYield: p.quantity,
+                    actualYield: p.quantity,
+                    actualUsage: null,
+                    heldRecipeIds: [],
+                  })
+                }
+              />
+            </div>
+            <p>
+              Making {v.actualYield} recipe units ·{" "}
+              {inventory.locations.find((l) => l.id === v.locationId)?.name} ·{" "}
+              {v.batchReference}
+            </p>
+          </section>
+          <section className="workflow-step">
+            <h3>2. Check your ingredients</h3>
+            <ProductionCheck value={v} set={set} />
+          </section>
+          <details>
+            <summary>Adjust yield, costs, location or batch details</summary>
+            <div className="inventory-fields">
+              <Numeric
+                label="Actual finished yield"
+                value={v.actualYield}
+                change={(actualYield) => set({ ...v, actualYield })}
+              />
+              <Place
+                locations={inventory.locations}
+                label="Consume from"
+                value={v.locationId}
+                change={(locationId) => set({ ...v, locationId })}
+              />
+              <Place
+                locations={inventory.locations}
+                label="Finished stock location"
+                value={v.destinationId}
+                change={(destinationId) => set({ ...v, destinationId })}
+              />
+              <Text
+                label="Production date"
+                type="date"
+                value={v.date}
+                change={(date) => set({ ...v, date })}
+              />
+              <Text
+                label="Production batch reference"
+                value={v.batchReference}
+                change={(batchReference) => set({ ...v, batchReference })}
+              />
+              <Text
+                label="Produced by"
+                value={v.operator}
+                change={(operator) => set({ ...v, operator })}
+              />
+              <Select
+                label="Production mode"
+                value={v.mode}
+                change={(mode) => set({ ...v, mode })}
+                options={[
+                  { id: "made-ahead", name: "Made ahead — add finished stock" },
+                  {
+                    id: "made-to-order",
+                    name: "Made to order — consume at preparation",
+                  },
+                ]}
+              />
+              <Numeric
+                label="Extra production waste (%)"
+                value={v.extraWastePercent}
+                change={(extraWastePercent) =>
+                  set({ ...v, extraWastePercent, actualUsage: null })
+                }
+              />
+              <Numeric
+                label="Actual labour cost (£)"
+                value={v.labourCost}
+                change={(labourCost) => set({ ...v, labourCost })}
+              />
+              <Numeric
+                label="Other batch costs (£)"
+                value={v.otherCost}
+                change={(otherCost) => set({ ...v, otherCost })}
+              />
+            </div>
             <Text
-              label="Production date"
-              type="date"
-              value={v.date}
-              change={(date) => set({ ...v, date })}
+              label="Production notes / explanation of differences"
+              value={v.notes}
+              change={(notes) => set({ ...v, notes })}
             />
-            <Text
-              label="Production batch reference"
-              value={v.batchReference}
-              change={(batchReference) => set({ ...v, batchReference })}
-            />
-            <Text
-              label="Produced by"
-              value={v.operator}
-              change={(operator) => set({ ...v, operator })}
-            />
-            <Select
-              label="Production mode"
-              value={v.mode}
-              change={(mode) => set({ ...v, mode })}
-              options={[
-                { id: "made-ahead", name: "Made ahead — add finished stock" },
-                {
-                  id: "made-to-order",
-                  name: "Made to order — consume at preparation",
-                },
-              ]}
-            />
-            <Numeric
-              label="Extra production waste (%)"
-              value={v.extraWastePercent}
-              change={(extraWastePercent) =>
-                set({ ...v, extraWastePercent, actualUsage: null })
-              }
-            />
-            <Numeric
-              label="Actual labour cost (£)"
-              value={v.labourCost}
-              change={(labourCost) => set({ ...v, labourCost })}
-            />
-            <Numeric
-              label="Other batch costs (£)"
-              value={v.otherCost}
-              change={(otherCost) => set({ ...v, otherCost })}
-            />
-          </div>
+          </details>
           <details>
             <summary>Use prepared components already in stock</summary>
             <p>
-              Checked components are consumed as prepared stock of the exact
-              version used by this recipe. Their original ingredients are not
-              deducted again. Unchecked components are made as part of this
-              batch.
+              Checked components use their prepared stock, of the exact recipe
+              version required. Their original ingredients are not deducted
+              again.
             </p>
             {state.recipes
               .filter((x) => x.recipe.id !== v.recipeId)
@@ -705,15 +747,19 @@ export function ProductionForm({
                 </label>
               ))}
           </details>
-          <ProductionCheck value={v} set={set} />
-          <Text
-            label="Production notes / explanation of differences"
-            value={v.notes}
-            change={(notes) => set({ ...v, notes })}
-          />
-          {v.mode === "made-ahead" && (
-            <Dates value={v} change={(d) => set({ ...v, ...d })} />
-          )}
+          <section className="workflow-step">
+            <h3>3. Record storage dates</h3>
+            {v.mode === "made-ahead" ? (
+              <Dates value={v} change={(d) => set({ ...v, ...d })} />
+            ) : (
+              <p>Made to order: no finished stock will be created.</p>
+            )}
+            <p>
+              Confirming records {v.actualYield} completed recipe units and
+              deducts the ingredients once. Unreviewed finished stock stays
+              unavailable until its dates are reviewed.
+            </p>
+          </section>
         </>
       )}
     </DraftForm>
@@ -742,7 +788,12 @@ function ProductionCheck({
               ? "Usable stock covers the selected actual quantities."
               : "Stock shortage — receive usable stock before confirming, or record an explained actual usage change."}
           </p>
-          <div className="inventory-table">
+          <div
+            className="inventory-table"
+            tabIndex={0}
+            role="region"
+            aria-label="Scrollable stock table"
+          >
             <table>
               <thead>
                 <tr>
@@ -1115,12 +1166,19 @@ export function ShoppingForm({
           supplier quote; illustrative quotes are labelled.
         </p>
         {v.plans.length > 0 && <ErrorBox error={error} />}
-        <div className="inventory-table">
+        <div
+          className="inventory-table"
+          tabIndex={0}
+          role="region"
+          aria-label="Scrollable stock table"
+        >
           <table>
             <thead>
               <tr>
                 <th>Item</th>
-                <th>Required / usable / short</th>
+                <th>Needed</th>
+                <th>Available</th>
+                <th>To buy</th>
                 <th>Pack size</th>
                 <th>Buy packs</th>
                 <th>Supplier / estimate</th>
@@ -1134,8 +1192,15 @@ export function ShoppingForm({
                     <small>{r.unit}</small>
                   </td>
                   <td>
-                    {number(r.required)} / {number(r.available)} /{" "}
-                    <b>{number(r.shortfall)}</b>
+                    {number(r.required)} {r.unit}
+                  </td>
+                  <td>
+                    {number(r.available)} {r.unit}
+                  </td>
+                  <td>
+                    <b>
+                      {number(r.shortfall)} {r.unit}
+                    </b>
                   </td>
                   <td>
                     {r.packSize === null ? "No quote" : number(r.packSize)}

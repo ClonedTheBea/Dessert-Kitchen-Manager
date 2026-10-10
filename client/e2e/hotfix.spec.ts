@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import {login} from "./login";
+import { login, navigate } from "./login";
 async function post(page: Page, url: string, data: unknown) {
   const r = await page.request.post("/api" + url, {
     data,
@@ -74,7 +74,7 @@ test("read-only method, empty state, draft debounce, reordering and publication"
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page
-      .getByRole("dialog")
+      .locator(".recipe-page")
       .evaluate((e) => e.scrollWidth <= e.clientWidth + 1),
   ).toBeTruthy();
   await page.screenshot({
@@ -88,9 +88,7 @@ test("failed autosave, retry, rapid edits in flight and navigation flush", async
 }) => {
   await login(page);
   await open(page, "Chocolate milkshake");
-  await page
-    .getByRole("button", { name: "Edit recipe / resume draft" })
-    .click();
+  await page.getByRole("button", { name: "Edit Recipe" }).click();
   let fail = true;
   let slow = false;
   await page.route("**/api/drafts/recipe/milkshake", async (route) => {
@@ -151,12 +149,10 @@ test("mutable records validate, autosave, preserve conflicts and flush page navi
   page,
 }) => {
   await login(page);
-  await page
-    .getByRole("button", { name: "Financial planner", exact: true })
-    .click();
+  await navigate(page, "Financial planner");
   await page.getByRole("button", { name: "Duplicate scenario" }).click();
   await page.getByLabel("Scenario name").fill("Autosave navigation test");
-  await page.getByRole("button", { name: "Ingredients", exact: true }).click();
+  await navigate(page, "Ingredients");
   await expect(
     page.getByRole("button", { name: "Suppliers", exact: true }),
   ).toBeVisible();
@@ -209,14 +205,12 @@ test("category illustrations retain dimensions across versions 1 2 3 and types",
     await page.getByRole("button", { name: "Recipes", exact: true }).click();
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      const card = page
-        .locator(".recipe-card")
-        .filter({
-          has: page.getByRole("heading", {
-            name: "Illustration regression",
-            exact: true,
-          }),
-        });
+      const card = page.locator(".recipe-card").filter({
+        has: page.getByRole("heading", {
+          name: "Illustration regression",
+          exact: true,
+        }),
+      });
       const art = await card.locator(".recipe-card-art").boundingBox();
       const icon = await card.locator(".recipe-initial svg").boundingBox();
       expect(icon!.width).toBe(width === 390 ? 37 : 48);
@@ -243,6 +237,7 @@ test("category illustrations retain dimensions across versions 1 2 3 and types",
       }),
     })
     .click();
+  await page.getByRole("button", { name: "View History", exact: true }).click();
   let first;
   for (const version of ["1", "2", "3"]) {
     await page.getByLabel("View published version").selectOption(version);
@@ -268,9 +263,7 @@ test("draft load failure can retry without replacing the saved draft", async ({
       });
     await route.continue();
   });
-  await page
-    .getByRole("button", { name: "Edit recipe / resume draft" })
-    .click();
+  await page.getByRole("button", { name: "Edit Recipe" }).click();
   await expect(
     page.getByText("Unable to load draft", { exact: true }),
   ).toBeVisible();

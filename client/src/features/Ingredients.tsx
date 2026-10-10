@@ -1,19 +1,22 @@
-import { ArrowRight, CircleHelp, Plus, Search, Store } from "lucide-react";
+import { ArrowRight, CircleHelp, Plus, Search } from "lucide-react";
 import { useState } from "react";
 import { money, number, today } from "../api";
 import type { Ingredient, State } from "../types";
 
 import { Tag, type Notify } from "../components/ui";
+import IngredientQuickAdd from "./IngredientQuickAdd";
 import IngredientEditor from "./IngredientEditor";
 import PriceEditor from "./PriceEditor";
 import RecordManagement from "./RecordManagement";
 import Suppliers from "./Suppliers";
 export default function Ingredients({
   state,
+  initialAction = "",
   refresh,
   notify,
 }: {
   state: State;
+  initialAction?: string;
   refresh: () => Promise<void>;
   notify: Notify;
 }) {
@@ -22,20 +25,9 @@ export default function Ingredients({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All items");
   const [editing, setEditing] = useState<Ingredient>();
+  const [creating, setCreating] = useState(initialAction === "ingredient");
   const [pricing, setPricing] = useState<Ingredient>();
-  const [suppliers, setSuppliers] = useState(false);
-  const newIngredient = (): Ingredient => ({
-    id: "",
-    revision: 0,
-    name: "",
-    category: "Dairy",
-    description: "",
-    baseUnit: "g",
-    brand: "",
-    allergens: "",
-    minimumStock: 0,
-    isPackaging: false,
-  });
+  const [suppliers, setSuppliers] = useState(initialAction === "suppliers");
   const rows = state.ingredients.filter(
     (i) =>
       (showArchived || !i.archived) &&
@@ -62,14 +54,7 @@ export default function Ingredients({
           <p>Know what goes in. Know what it costs.</p>
         </div>
         <div className="actions">
-          <button className="secondary" onClick={() => setSuppliers(true)}>
-            <Store size={17} />
-            Suppliers
-          </button>
-          <button
-            className="primary"
-            onClick={() => setEditing(newIngredient())}
-          >
+          <button className="primary" onClick={() => setCreating(true)}>
             <Plus size={18} />
             Add ingredient
           </button>
@@ -83,7 +68,7 @@ export default function Ingredients({
           versions keep their original prices.
         </div>
       </div>
-      <label className="checkbox">
+      <label className="checkbox shell-caption">
         <input
           type="checkbox"
           checked={showArchived}
@@ -114,7 +99,12 @@ export default function Ingredients({
             />
           </div>
         </div>
-        <div className="table-wrap">
+        <div
+          className="table-wrap"
+          tabIndex={0}
+          role="region"
+          aria-label="Scrollable table"
+        >
           <table>
             <thead>
               <tr>
@@ -181,7 +171,7 @@ export default function Ingredients({
                         className="text-button"
                         onClick={() => setPricing(i)}
                       >
-                        Prices & history <ArrowRight size={15} />
+                        Update price <ArrowRight size={15} />
                       </button>
                       <br />
                       <button
@@ -201,10 +191,21 @@ export default function Ingredients({
           )}
         </div>
         <div className="panel-foot">
-          {rows.length} items · All prices in GBP · Stock quantities arrive in
-          Sprint 2
+          {rows.length} items · All prices in GBP · Stock is managed in the
+          Stock workspace
         </div>
       </section>
+      {creating && (
+        <IngredientQuickAdd
+          state={state}
+          close={() => setCreating(false)}
+          saved={async () => {
+            await refresh();
+            setCreating(false);
+            notify("Ingredient and initial price added.");
+          }}
+        />
+      )}
       {managing && (
         <RecordManagement
           kind="ingredient"

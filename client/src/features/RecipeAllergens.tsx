@@ -16,10 +16,12 @@ export default function RecipeAllergens({
   draft,
   original,
   state,
+  initiallyOpen = false,
 }: {
   draft: Recipe;
   original: Recipe;
   state: State;
+  initiallyOpen?: boolean;
 }) {
   const [editingIngredient, setEditingIngredient] = useState<Ingredient>();
   const [localState, setLocalState] = useState(state);
@@ -135,7 +137,7 @@ export default function RecipeAllergens({
     </Field>
   );
   return (
-    <details className="recipe-allergens" open>
+    <details className="recipe-allergens" open={initiallyOpen}>
       <summary>Allergens & dietary review</summary>
       <p className="help">
         You can save and publish recipes while dietary approval is pending.

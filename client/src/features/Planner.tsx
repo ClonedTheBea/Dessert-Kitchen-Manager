@@ -1,4 +1,4 @@
-import { ChartNoAxesCombined, Plus, Save } from "lucide-react";
+import { ChartNoAxesCombined, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAutoSave, SaveStatus } from "../autoSave";
 import { api, money, number } from "../api";
@@ -11,7 +11,7 @@ import { ErrorBox, clone, type Notify } from "../components/ui";
 export default function Planner({
   state,
   refresh,
-  notify,
+  notify: _notify,
 }: {
   state: State;
   refresh: () => Promise<void>;
@@ -21,8 +21,6 @@ export default function Planner({
   const autosave = useAutoSave(draft, setDraft, "/scenarios");
   const [model, setModel] = useState<Model>();
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const dirty = autosave.dirty;
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {
@@ -60,12 +58,11 @@ export default function Planner({
       <div className="page-heading">
         <div>
           <div className="eyebrow">KNOW YOUR SWEET SPOT</div>
-          <h1>Financial planner</h1>
+          <h1>Make the numbers work.</h1>
           <p>Explore what it takes to make your kitchen work for you.</p>
         </div>
         <span className="tag sample">Estimates, not recorded results</span>
       </div>
-      <ActualCostComparison variableCost={draft.variableCost}/>
       <div className="planner-toolbar">
         <div className="actions">
           <select
@@ -94,39 +91,21 @@ export default function Planner({
             className="secondary"
             onClick={async () => {
               if (!(await autosave.flush())) return;
-              autosave.reset({
-                ...clone(draft),
-                id: "",
-                revision: 0,
-                name: draft.name + " — alternative",
-              }, true);
+              autosave.reset(
+                {
+                  ...clone(draft),
+                  id: "",
+                  revision: 0,
+                  name: draft.name + " — alternative",
+                },
+                true,
+              );
             }}
           >
             <Plus size={16} />
             Duplicate scenario
           </button>
         </div>
-        <button
-          className="primary"
-          disabled={busy || !model}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              if (!(await autosave.flush())) return;
-              await refresh();
-
-              notify("Scenario and fixed expenses saved.");
-            } catch (e) {
-              setError((e as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <Save size={17} />
-          {busy ? "Saving…" : "Save scenario"}
-          {dirty && " *"}
-        </button>
       </div>
       <SaveStatus save={autosave} />
       <ErrorBox error={error} />
@@ -136,44 +115,36 @@ export default function Planner({
           aria-label="Financial results"
         >
           <div>
-            <small>Revenue · gross/month</small>
-            <strong>{money(model.grossSales)}</strong>
+            <small>How much does it cost to run?</small>
+            <strong>{money(model.fixedCosts)}</strong>
+            <span>Fixed operating costs / month, including staff</span>
+          </div>
+          <div>
+            <small>How much do I make per order?</small>
+            <strong>{money(model.contributionPerOrder)}</strong>
+            <span>Contribution after variable costs and fees</span>
+          </div>
+          <div>
+            <small>How many orders must I sell?</small>
+            <strong>
+              {model.requiredOrders["Business expenses"] === null
+                ? "Not achievable"
+                : Math.ceil(
+                    model.requiredOrders["Business expenses"]! /
+                      model.monthlyOpenDays,
+                  )}
+            </strong>
             <span>
-              {number(model.monthlyOrders)} orders × discounted order value
+              Break-even orders / evening ·{" "}
+              {model.requiredOrders["Business expenses"] ?? "—"} / month
             </span>
           </div>
           <div>
-            <small>
-              Contribution/month{" "}
-              <abbr
-                title="Money left from sales after variable costs, before fixed operating expenses."
-                tabIndex={0}
-              >
-                ?
-              </abbr>
-            </small>
-            <strong>{money(model.contribution)}</strong>
-            <span>{money(model.contributionPerOrder)} per order</span>
-          </div>
-          <div>
-            <small>
-              Operating profit/month{" "}
-              <abbr
-                title="Amount after operating expenses and staff costs, before tax, owner compensation and capital recovery."
-                tabIndex={0}
-              >
-                ?
-              </abbr>
-            </small>
+            <small>How much profit could I make?</small>
             <strong>{money(model.operatingProfit)}</strong>
-            <span>{money(model.fixedCosts)} fixed costs including staff</span>
-          </div>
-          <div>
-            <small>Cash-cost break-even proxy</small>
-            <strong>
-              {model.requiredOrders["Business expenses"] ?? "Not achievable"}
-            </strong>
-            <span>orders/month · excludes payment timing and tax</span>
+            <span>
+              Operating profit / month, before owner pay and capital recovery
+            </span>
           </div>
         </section>
       )}
@@ -299,11 +270,15 @@ export default function Planner({
               <p>Updating forecast… Check any validation messages above.</p>
             </section>
           )}
-          <ScenarioComparison
-            draft={draft}
-            scenarios={state.scenarios}
-            model={model}
-          />
+          <details className="money-advanced">
+            <summary>Compare scenarios & actual production costs</summary>
+            <ActualCostComparison variableCost={draft.variableCost} />
+            <ScenarioComparison
+              draft={draft}
+              scenarios={state.scenarios}
+              model={model}
+            />
+          </details>
         </div>
       </div>
     </>

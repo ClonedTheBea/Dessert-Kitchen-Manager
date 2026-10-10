@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-import {login} from "./login";
+import { login, navigate } from "./login";
 async function post(page: Page, url: string, data: unknown) {
   const r = await page.request.post("/api" + url, {
     data,
@@ -16,15 +16,14 @@ test("method steps, internal pricing, version history and separate variant", asy
   await login(page);
   await page.getByRole("button", { name: "Recipes", exact: true }).click();
   await page.getByRole("button", { name: /Cheesecake biscuit base/ }).click();
-  await page
-    .getByRole("button", { name: "Edit recipe / resume draft" })
-    .click();
+  await page.getByRole("button", { name: "Edit Recipe" }).click();
   await expect(page.getByLabel("Selling price per yield unit (£)")).toHaveCount(
     0,
   );
   await page
     .getByLabel("Description", { exact: true })
     .fill("Buttery base, kept separate from the method.");
+  await page.getByRole("button", { name: "Method", exact: true }).click();
   await page.getByRole("button", { name: "Add step", exact: true }).click();
   await page
     .getByLabel("Preparation step 1", { exact: true })
@@ -43,11 +42,9 @@ test("method steps, internal pricing, version history and separate variant", asy
   await expect(page.locator(".method-read")).toContainText(
     "Melt the butter carefully.",
   );
-  await page.getByRole("button", { name: "Save new version" }).click();
+  await page.getByRole("button", { name: "Publish recipe version" }).click();
   await page.getByRole("button", { name: /Cheesecake biscuit base/ }).click();
-  await page
-    .getByRole("button", { name: "Edit recipe / resume draft" })
-    .click();
+  await page.getByRole("button", { name: "Edit Recipe" }).click();
   await expect(
     page.getByLabel("Preparation step 1", { exact: true }),
   ).toHaveValue("Melt the butter carefully.");
@@ -56,6 +53,9 @@ test("method steps, internal pricing, version history and separate variant", asy
   await page
     .getByRole("combobox", { name: "Recipe type", exact: true })
     .selectOption("sellable");
+  await page
+    .getByRole("button", { name: "Cost & pricing", exact: true })
+    .click();
   await expect(
     page.getByLabel("Selling price per yield unit (£)"),
   ).toBeVisible();
@@ -64,11 +64,12 @@ test("method steps, internal pricing, version history and separate variant", asy
     .getByRole("button", { name: "Create variant", exact: true })
     .click();
   await page
+    .getByRole("button", { name: "Recipe details", exact: true })
+    .click();
+  await page
     .getByLabel("Recipe name", { exact: true })
     .fill("Separately costed base variant");
-  await page
-    .getByRole("button", { name: /Save new version|Save recipe/ })
-    .click();
+  await page.getByRole("button", { name: "Publish recipe version" }).click();
   await expect(
     page.getByRole("heading", { name: "Separately costed base variant" }),
   ).toBeVisible();
@@ -88,12 +89,10 @@ test("unused supplier deletion and referenced ingredient archive/restore preserv
   page,
 }) => {
   await login(page);
-  await page.getByRole("button", { name: "Ingredients", exact: true }).click();
+  await navigate(page, "Ingredients");
   await page.getByRole("button", { name: "Suppliers", exact: true }).click();
   await page.getByLabel("Supplier name").fill("Unused UI supplier");
-  await page
-    .getByRole("button", { name: "Save supplier", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
   await page.getByRole("button", { name: /Unused UI supplier/ }).click();
   await page.getByRole("button", { name: /Manage supplier/ }).click();
   const management = page.getByRole("dialog", {
@@ -109,11 +108,9 @@ test("unused supplier deletion and referenced ingredient archive/restore preserv
     .getByRole("dialog", { name: "Your suppliers", exact: true })
     .getByRole("button", { name: "Close dialog" })
     .click();
-  const row = page
-    .getByRole("row")
-    .filter({
-      has: page.getByRole("button", { name: "Cream cheese", exact: true }),
-    });
+  const row = page.getByRole("row").filter({
+    has: page.getByRole("button", { name: "Cream cheese", exact: true }),
+  });
   await row.getByRole("button", { name: "Manage record" }).click();
   const manage = page.getByRole("dialog", { name: "Manage Cream cheese" });
   await expect(
@@ -217,9 +214,8 @@ test("documented allergen review, invalidation, matrix export and print", async 
   await page
     .getByRole("button", { name: /UI allergen review product/ })
     .click();
-  await page
-    .getByRole("button", { name: "Edit recipe / resume draft" })
-    .click();
+  await page.getByRole("button", { name: "Edit Recipe" }).click();
+  await page.getByText("Allergens & dietary review", { exact: true }).click();
   await page
     .getByText("Document a suitability review", { exact: true })
     .click();
@@ -260,10 +256,11 @@ test("documented allergen review, invalidation, matrix export and print", async 
   await expect(
     page.getByRole("button", { name: "Approve documented controls" }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Save new version" }).click();
+  await page.getByRole("button", { name: "Publish recipe version" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   state = await (await page.request.get("/api/state")).json();
   expect(state.recipeSafety["ui-rice-product"].publicClaims).toEqual([]);
+  await page.getByText("Allergen filters & matrix", { exact: true }).click();
   await page
     .getByRole("combobox", { name: "Allergen restriction" })
     .selectOption("milk");
@@ -291,16 +288,14 @@ test("planner sections, staffing, sales-channel mix, comparisons and mobile resu
   page,
 }) => {
   await login(page);
-  await page
-    .getByRole("button", { name: "Financial planner", exact: true })
-    .click();
+  await navigate(page, "Financial planner");
   await expect(
     page.getByRole("region", { name: "Financial results" }),
   ).toContainText("£8.44");
   await page.getByRole("button", { name: "Duplicate scenario" }).click();
   await page.getByLabel("Scenario name").fill("Staffing browser scenario");
   await page
-    .getByText("D · Staffing and owner time", { exact: false })
+    .getByText("Staffing and owner time", { exact: false })
     .first()
     .click();
   await page
@@ -311,12 +306,15 @@ test("planner sections, staffing, sales-channel mix, comparisons and mobile resu
     .getByLabel("Employer cost allowance (%)", { exact: true })
     .fill("20");
   await page
-    .getByText("C · Delivery platform costs", { exact: false })
+    .getByText("Delivery platform costs", { exact: false })
     .first()
     .click();
   await page.getByLabel("Model sales-channel mix").check();
   await page.getByLabel("Channel 2 name", { exact: true }).fill("Direct");
   await page.getByLabel("Channel 2 commission (%)", { exact: true }).fill("0");
+  await page
+    .getByText("Compare scenarios & actual production costs", { exact: true })
+    .click();
   await page
     .getByRole("combobox", { name: "Compare scenario" })
     .selectOption("baseline");
@@ -324,10 +322,7 @@ test("planner sections, staffing, sales-channel mix, comparisons and mobile resu
   await expect(page.locator(".comparison")).toContainText(
     "Break-even incl. owner",
   );
-  await page.getByRole("button", { name: /Save scenario/ }).click();
-  await expect(page.getByRole("status")).toContainText(
-    "Scenario and fixed expenses saved.",
-  );
+  await expect(page.locator("main > .save-status")).toContainText("Saved");
   await page.screenshot({
     path: "test-results/sprint11-planner-desktop.png",
     fullPage: true,

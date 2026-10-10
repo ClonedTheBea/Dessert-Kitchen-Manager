@@ -20,7 +20,7 @@ import { ErrorBox, type Page } from "./components/ui";
 import Inventory from "./features/Inventory";
 import Ingredients from "./features/Ingredients";
 import Login from "./features/Login";
-import Overview from "./features/Overview";
+import Home from "./features/Home";
 import Planner from "./features/Planner";
 import Recipes from "./features/Recipes";
 import SettingsPage from "./features/SettingsPage";
@@ -35,6 +35,8 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
   const [menu, setMenu] = useState(false);
+  const [action, setAction] = useState("");
+  const [navSeq, setNavSeq] = useState(0);
   const refresh = async () => {
     setState(await api<State>("/state"));
   };
@@ -58,10 +60,13 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [toast]);
-  const navigate = async (p: Page) => {
+  const navigate = async (p: Page, nextAction = "") => {
     if (!(await flushEdits())) return;
     await refresh();
     setPage(p);
+    setAction(nextAction);
+    setNavSeq((n) => n + 1);
+    window.scrollTo(0, 0);
     setMenu(false);
   };
   if (!auth)
@@ -80,14 +85,21 @@ export default function App() {
       />
     );
   const pages = [
-    { name: "Overview" as Page, icon: LayoutDashboard },
-    { name: "Ingredients" as Page, icon: Wheat },
-    { name: "Recipes" as Page, icon: BookOpen },
-    { name: "Financial planner" as Page, icon: ChartNoAxesCombined },
-    { name: "Inventory" as Page, icon: ChefHat },
+    { name: "Overview" as Page, label: "Home", icon: LayoutDashboard },
+
+    { name: "Recipes" as Page, label: "Recipes", icon: BookOpen },
+    { name: "Inventory" as Page, label: "Stock", icon: Wheat },
+    {
+      name: "Financial planner" as Page,
+      label: "Money",
+      icon: ChartNoAxesCombined,
+    },
   ];
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <aside className={"sidebar " + (menu ? "expanded" : "")}>
         <a
           className="brand"
@@ -107,33 +119,33 @@ export default function App() {
         <div className="workspace">
           <span className="workspace-avatar">DK</span>
           <div>
-            Your kitchen<small>Planning & recipe testing</small>
+            Your kitchen<small>Recipes, stock & possibilities</small>
           </div>
           <span className="status-dot" />
         </div>
         <p className="nav-label">WORKSPACE</p>
-        <nav>
-          {pages.map(({ name, icon: Icon }) => (
+        <nav aria-label="Main navigation">
+          {pages.map(({ name, label, icon: Icon }) => (
             <button
               key={name}
-              className={page === name ? "active" : ""}
+              aria-current={
+                page === name || (page === "Ingredients" && name === "Recipes")
+                  ? "page"
+                  : undefined
+              }
+              className={
+                page === name || (page === "Ingredients" && name === "Recipes")
+                  ? "active"
+                  : ""
+              }
               onClick={() => navigate(name)}
             >
               <Icon size={19} />
-              {name}
+              {label}
               {page === name && <span className="nav-dot" />}
             </button>
           ))}
         </nav>
-        <div className="coming">
-          <p className="nav-label">GROWING WITH YOUR KITCHEN</p>
-          <p>
-            Orders & reporting <span>Sprint 3</span>
-          </p>
-          <p>
-            Tax & accounting <span>Sprint 4</span>
-          </p>
-        </div>
         <div className="sidebar-bottom">
           <div className="private-note">
             <ShieldCheck size={19} />
@@ -171,45 +183,79 @@ export default function App() {
             <button
               className="icon-button mobile-menu"
               aria-label="Toggle navigation"
+              aria-expanded={menu}
               onClick={() => setMenu(!menu)}
             >
               <Menu />
             </button>
             <span className="breadcrumb">
-              Workspace <ChevronRight size={14} /> <strong>{page}</strong>
+              Workspace <ChevronRight size={14} />{" "}
+              <strong>
+                {page === "Ingredients"
+                  ? "Recipes / Ingredients"
+                  : (pages.find((p) => p.name === page)?.label ?? page)}
+              </strong>
             </span>
           </div>
           <div className="topbar-right">
             <span className="planning-pill">
               <span className="status-dot" />
-              Planning mode
+              Private kitchen
             </span>
             <span className="avatar">MK</span>
           </div>
         </header>
-        <main>
+        <main id="main-content" tabIndex={-1}>
           <ErrorBox error={error} />
           {!state ? (
             <p>Loading saved records…</p>
           ) : (
             <>
+              {(page === "Recipes" || page === "Ingredients") && (
+                <nav className="section-nav" aria-label="Recipe workspace">
+                  <button
+                    className={page === "Recipes" ? "active" : ""}
+                    onClick={() => navigate("Recipes")}
+                  >
+                    Recipe book
+                  </button>
+                  <button
+                    className={page === "Ingredients" ? "active" : ""}
+                    onClick={() => navigate("Ingredients")}
+                  >
+                    Ingredients
+                  </button>
+                  <button onClick={() => navigate("Ingredients", "suppliers")}>
+                    Suppliers
+                  </button>
+                </nav>
+              )}
               {page === "Overview" && (
-                <Overview state={state} navigate={navigate} />
+                <Home state={state} navigate={navigate} />
               )}
               {page === "Ingredients" && (
                 <Ingredients
+                  key={navSeq}
+                  initialAction={action}
                   state={state}
                   refresh={refresh}
                   notify={setToast}
                 />
               )}
               {page === "Recipes" && (
-                <Recipes state={state} refresh={refresh} notify={setToast} />
+                <Recipes
+                  key={navSeq}
+                  state={state}
+                  refresh={refresh}
+                  notify={setToast}
+                />
               )}
               {page === "Financial planner" && (
                 <Planner state={state} refresh={refresh} notify={setToast} />
               )}
-              {page === "Inventory" && <Inventory state={state} />}
+              {page === "Inventory" && (
+                <Inventory key={navSeq} initialAction={action} state={state} />
+              )}
               {page === "Settings" && <SettingsPage state={state} />}
             </>
           )}

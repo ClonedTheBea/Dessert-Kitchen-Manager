@@ -1,0 +1,62 @@
+/* Apiary Dev Tools reference: src/styles/global.css + tool-ui.css.
+   Brand primitives live here; components consume semantic roles below. */
+:root {
+  --brand-night: #191522;
+  --brand-nav: #211a2c;
+  --brand-plum: #412653;
+  --brand-pink: #d174d2;
+  --brand-card: #f3f0f5;
+  --brand-ink: #292131;
+  --brand-soft: #e4d8eb;
+  --brand-blue: #3f567f;
+  --brand-coral: #e0563f;
+  --shell-bg: var(--brand-night);
+  --shell-nav: var(--brand-nav);
+  --shell-text: #f5f3f8;
+  --shell-muted: #bcb5c8;
+  --shell-border: #50415e;
+  --shell-hover: #382840;
+  --surface: var(--brand-card);
+  --surface-raised: #ffffff;
+  --surface-soft: var(--brand-soft);
+  --text: var(--brand-ink);
+  --text-muted: #51475b;
+  --text-subtle: #60556b;
+  --border: #c6b9ce;
+  --control-border: #807487;
+  --accent: var(--brand-plum);
+  --accent-hover: #58346d;
+  --accent-soft: var(--brand-soft);
+  --accent-text: #624276;
+  --focus-light: #80508f;
+  --focus-dark: var(--brand-pink);
+  --danger: #903827;
+  --danger-soft: #f3dfdc;
+  --success: #285841;
+  --success-soft: #e3f0e7;
+  --warning: #704316;
+  --warning-soft: #faf0df;
+  --info: #304a73;
+  --info-soft: #dce3ef;
+  --overlay: #100b18b3;
+  --shadow: 0 9px 24px #0d081840;
+  --shadow-dialog: 0 24px 80px #0d081880;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-heading: var(--font-body);
+  --radius-control: 8px;
+  --radius-card: 11px;
+  --radius-dialog: 16px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --control-height: 44px;
+  /* Compatibility aliases while layout classes remain stable. */
+  --green: var(--accent);
+  --dark: var(--accent);
+  --muted: var(--text-muted);
+  --cream: var(--surface-soft);
+}

@@ -102,6 +102,7 @@ api.MapPost("/drafts/{kind}/{id}/publish",(string kind,string id,PublishRequest 
             var v=new RecipeVersion(saved,store.Calculate(saved),Store.Now(),store.Assess(saved));
             store.Save("recipe",saved.Id,input.Revision,saved,v,d);return Results.Json(v);
         }
+        if(kind=="ingredient-setup")return Results.Json(store.CreateIngredientSetup(d.Body.Deserialize<IngredientSetup>(Store.Json)!,d));
         if(kind=="ingredient")return Results.Json(SaveIngredient(d.Body.Deserialize<Ingredient>(Store.Json)!,d));
         if(kind=="price")
         {
@@ -132,6 +133,14 @@ api.MapPost("/suppliers", (Supplier input) =>
     lock (writeLock) store.Save("supplier", saved.Id, input.Revision, saved); return saved;
 });
 api.MapPost("/ingredients", (Ingredient input) => SaveIngredient(input));
+api.MapPost("/prices/preview", (Price input) =>
+{
+    Guard.Require(input.PackQuantity>0&&input.PackQuantity<=1000000,"Pack quantity must be positive.");
+    Guard.Amount(input.PackPrice,"Pack price");Guard.Amount(input.VatRate,"VAT rate",100);
+    Units.Definition(input.Unit);
+    var unit=input.Unit=="kg"?"g":input.Unit=="l"?"ml":input.Unit;
+    return new { unit, cost=Costing.IngredientCost(input,1,unit,0) };
+});
 api.MapPost("/prices", (Price input) =>
 {
     var saved = input with { Id = Guid.NewGuid().ToString("N"), RecordedAt = Store.Now() };

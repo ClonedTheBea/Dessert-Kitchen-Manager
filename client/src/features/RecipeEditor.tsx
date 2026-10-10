@@ -1,33 +1,28 @@
-import { Clock, Plus, Save, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Clock, Plus, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { api, date, money, number } from "../api";
 import type { Cost, Recipe, State, Version } from "../types";
 import { useAutoSave, SaveStatus } from "../autoSave";
 import MethodEditor from "./MethodEditor";
 import RecipeAllergens from "./RecipeAllergens";
 
-import {
-  ErrorBox,
-  Field,
-  Modal,
-  Num,
-  Tag,
-  Unit,
-  clone,
-} from "../components/ui";
+import { ErrorBox, Field, Num, Tag, Unit, clone } from "../components/ui";
 export default function RecipeEditor({
   recipe,
   methodOnly = false,
+  initialSection = "recipe",
   state,
   close,
   saved,
 }: {
   recipe: Recipe;
   methodOnly?: boolean;
+  initialSection?: string;
   state: State;
   close: () => void;
   saved: () => Promise<void>;
 }) {
+  const [editorTab, setEditorTab] = useState(methodOnly ? "method" : "recipe");
   const [draft, setDraft] = useState(clone(recipe));
   const autosave = useAutoSave(
     draft,
@@ -35,6 +30,11 @@ export default function RecipeEditor({
     `/drafts/recipe/${recipe.id || "new"}`,
     true,
   );
+  const scaleRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (initialSection === "scale" && autosave.ready)
+      scaleRef.current?.scrollIntoView({ block: "start" });
+  }, [initialSection, autosave.ready]);
   const [cost, setCost] = useState<Cost>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -89,12 +89,12 @@ export default function RecipeEditor({
     }
   };
   return (
-    <Modal
-      title={recipe.id ? recipe.name : "Create a recipe"}
-      close={close}
-      wide
-    >
+    <section className="recipe-editor-page">
+      <div className="section-heading">
+        <h1>{recipe.id ? recipe.name : "Create a recipe"}</h1>
+      </div>
       <form
+        noValidate
         onSubmit={async (e) => {
           e.preventDefault();
           setBusy(true);
@@ -115,9 +115,7 @@ export default function RecipeEditor({
         <div className="editor-save-bar">
           <SaveStatus save={autosave} />
           <button className="primary" disabled={busy || !autosave.ready}>
-            {methodOnly
-              ? "Publish method & return"
-              : "Publish / Finalise version"}
+            {methodOnly ? "Publish method & return" : "Publish recipe version"}
           </button>
           <button
             type="button"
@@ -134,13 +132,33 @@ export default function RecipeEditor({
           their cost snapshots stay unchanged until you publish. Dietary
           approval is optional and separate.
         </p>
+        {!methodOnly && (
+          <div className="editor-tabs" aria-label="Recipe editor sections">
+            {["recipe", "method", "cost"].map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                aria-pressed={editorTab === tab}
+                onClick={() => setEditorTab(tab)}
+              >
+                {tab === "recipe"
+                  ? "Recipe details"
+                  : tab === "method"
+                    ? "Method"
+                    : "Cost & pricing"}
+              </button>
+            ))}
+          </div>
+        )}
         <fieldset disabled={!autosave.ready || busy} className="editor-fields">
-          <MethodEditor
-            steps={draft.methodSteps ?? []}
-            onChange={(steps) => update("methodSteps", steps)}
-          />
-          <div className="editor-columns" hidden={methodOnly}>
-            <div>
+          <div hidden={editorTab !== "method"}>
+            <MethodEditor
+              steps={draft.methodSteps ?? []}
+              onChange={(steps) => update("methodSteps", steps)}
+            />
+          </div>
+          <div className="editor-columns" hidden={editorTab === "method"}>
+            <div hidden={editorTab !== "recipe"}>
               <div className="form-grid">
                 <Field label="Recipe name">
                   <input
@@ -412,7 +430,11 @@ export default function RecipeEditor({
                 </p>
               )}
               <RecipeAllergens draft={draft} original={recipe} state={state} />
-              <details>
+              <details
+                ref={scaleRef}
+                className="scale-section"
+                open={initialSection === "scale"}
+              >
                 <summary>Labour & batch scaling</summary>
                 <div className="form-grid">
                   <Field label="Active labour per batch (minutes)">
@@ -474,7 +496,7 @@ export default function RecipeEditor({
                 </p>
               </details>
             </div>
-            <aside className="cost-panel">
+            <aside className="cost-panel" hidden={editorTab !== "cost"}>
               <span className="eyebrow">THE COST OF A GOOD RECIPE</span>
               <h3>
                 {draft.isSellable === false
@@ -638,14 +660,6 @@ export default function RecipeEditor({
             >
               Close · keep draft
             </button>
-            <button className="primary" disabled={busy}>
-              <Save size={17} />
-              {busy
-                ? "Working…"
-                : draft.id
-                  ? "Save new version"
-                  : "Save recipe"}
-            </button>
           </div>
         </div>
       </form>
@@ -692,6 +706,6 @@ export default function RecipeEditor({
           ))}
         </section>
       )}
-    </Modal>
+    </section>
   );
 }

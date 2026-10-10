@@ -58,7 +58,7 @@ export default function IngredientEditor({
       >
         <div className="editor-save-bar">
           <SaveStatus save={autosave} />
-          <button className="primary" disabled={!autosave.ready}>
+          <button className="primary" disabled={!autosave.ready || busy}>
             {creating ? "Finalise ingredient" : "Done"}
           </button>
         </div>
@@ -68,7 +68,7 @@ export default function IngredientEditor({
             stock type before finalising.
           </p>
         )}
-        <fieldset className="editor-fields" disabled={!autosave.ready}>
+        <fieldset className="editor-fields" disabled={!autosave.ready || busy}>
           <div className="form-grid">
             <Field label="Ingredient name">
               <input
@@ -115,25 +115,30 @@ export default function IngredientEditor({
                 onChange={(e) => update("brand", e.target.value)}
               />
             </Field>
-            <Field
-              label="Allergens"
-              hint="Legacy notes are retained here. Use structured allergen declarations below for assessment."
-            >
-              <input
-                value={draft.allergens}
-                onChange={(e) => update("allergens", e.target.value)}
-              />
-            </Field>
-            <Field
-              label={`Minimum stock (${draft.baseUnit})`}
-              hint="Saved now for the inventory sprint."
-            >
-              <Num
-                value={draft.minimumStock}
-                onChange={(v) => update("minimumStock", v)}
-              />
-            </Field>
           </div>
+          <details>
+            <summary>Stock limits & legacy allergen notes</summary>
+            <div className="form-grid">
+              <Field
+                label="Allergens"
+                hint="Legacy notes are retained here. Use structured allergen declarations below for assessment."
+              >
+                <input
+                  value={draft.allergens}
+                  onChange={(e) => update("allergens", e.target.value)}
+                />
+              </Field>
+              <Field
+                label={`Minimum stock (${draft.baseUnit})`}
+                hint="Low-stock threshold used in Stock."
+              >
+                <Num
+                  value={draft.minimumStock}
+                  onChange={(v) => update("minimumStock", v)}
+                />
+              </Field>
+            </div>
+          </details>
           <Field label="Description">
             <textarea
               value={draft.description}
@@ -158,23 +163,6 @@ export default function IngredientEditor({
           </label>
         </fieldset>
         <ErrorBox error={error} />
-        <div className="form-actions">
-          <button
-            type="button"
-            className="secondary"
-            onClick={async () => {
-              if (await autosave.flush()) {
-                if (creating) close();
-                else await saved();
-              }
-            }}
-          >
-            Done
-          </button>
-          <button disabled={busy} className="primary">
-            {busy ? "Saving…" : "Save ingredient"}
-          </button>
-        </div>
       </form>
     </Modal>
   );

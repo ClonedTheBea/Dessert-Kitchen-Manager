@@ -133,7 +133,7 @@ export default function Suppliers({
             </button>
           )}
           <button className="primary" disabled={busy}>
-            Save supplier
+            Done
           </button>
         </div>
       </form>

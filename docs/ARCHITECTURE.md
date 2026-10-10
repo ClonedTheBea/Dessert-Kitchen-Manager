@@ -41,3 +41,10 @@ The first eight example products and all initial prices are illustrative. No sam
 ## Inventory implementation
 
 See [Sprint 2](SPRINT-2.md) for schema, valuation rules, migration evidence and acceptance. The authenticated inventory endpoints post one immutable operation plus lots/movements in a single SQLite transaction. Working draft completion belongs to the same transaction. Duplicate keys return the original result; mismatched payloads conflict. Reversals are compensating movements. Stock is the C# decimal sum of signed lot/location movements, with FIFO allocation over usable receipts and recursive traceability. Stocktake snapshots compare each counted lot’s last movement sequence before applying differences. No sales or reservations have been implemented.
+
+
+## Sprint 2.1 presentation layer
+
+`client/src/theme.css` owns the Apiary-derived brand primitives and semantic roles. Layout styles and `redesign.css` consume variables; application CSS contains no colour literals outside the token file. Home, Recipes (with ingredients and suppliers), Stock, and Money are the four primary sections. Recipe reading/editing uses dedicated page content; working drafts and immutable publication remain distinct.
+
+The only backend additions are an authenticated, read-only `/prices/preview` endpoint using the existing decimal calculation, and the `ingredient-setup` draft publication transaction. It inserts an optional supplier, ingredient, initial quote, audit entries and draft receipt atomically. Existing CAS, dependency triggers and publication idempotency apply. There is no database migration and no change to FIFO, recipes, financial modelling or inventory posting. See [Sprint 2.1](SPRINT-2.1.md).

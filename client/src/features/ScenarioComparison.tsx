@@ -65,7 +65,12 @@ export default function ScenarioComparison({
       </select>
       <ErrorBox error={error} />
       {data && model && (
-        <div className="table-wrap">
+        <div
+          className="table-wrap"
+          tabIndex={0}
+          role="region"
+          aria-label="Scrollable table"
+        >
           <table className="comparison">
             <thead>
               <tr>

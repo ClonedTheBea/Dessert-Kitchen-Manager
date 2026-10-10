@@ -22,7 +22,7 @@ export default function PlannerAssumptions({
       <h2>Editable assumptions</h2>
       <p className="help">
         Open one section at a time. Results update automatically; changes are
-        retained only when you save this scenario.
+        saved automatically to this scenario.
       </p>
       <Field label="Scenario name">
         <input
@@ -32,7 +32,7 @@ export default function PlannerAssumptions({
       </Field>
       <details>
         <summary>
-          A · Business operating costs{" "}
+          Business operating costs{" "}
           <small>{draft.expenses.length} monthly expenses</small>
         </summary>
         <p className="help">
@@ -95,7 +95,7 @@ export default function PlannerAssumptions({
       </details>
       <details open>
         <summary>
-          B · Sales assumptions{" "}
+          Sales assumptions{" "}
           <small>{draft.openDays.length} trading evenings / week</small>
         </summary>
         <div className="form-grid">
@@ -146,7 +146,7 @@ export default function PlannerAssumptions({
       </details>
       <details>
         <summary>
-          C · Delivery platform costs{" "}
+          Delivery platform costs{" "}
           <small>
             {draft.channels?.length
               ? "Individual channel rates"
@@ -285,7 +285,7 @@ export default function PlannerAssumptions({
       </details>
       <details>
         <summary>
-          D · Staffing and owner time{" "}
+          Staffing and owner time{" "}
           <small>{draft.staffHoursWeekly ?? 0} paid staff hours / week</small>
         </summary>
         <h3>Paid staff</h3>
@@ -311,7 +311,7 @@ export default function PlannerAssumptions({
       </details>
       <details>
         <summary>
-          E · Tax assumptions{" "}
+          Tax assumptions{" "}
           <small>
             {draft.vatRegistered ? "VAT registered" : "Not VAT registered"}
           </small>
