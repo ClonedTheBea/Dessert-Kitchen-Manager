@@ -4,6 +4,7 @@ import { useAutoSave, SaveStatus } from "../autoSave";
 import { api, money, number } from "../api";
 import type { Model, Scenario, State } from "../types";
 import PlannerAssumptions from "./PlannerAssumptions";
+import { ActualCostComparison } from "./Inventory";
 import ScenarioComparison from "./ScenarioComparison";
 
 import { ErrorBox, clone, type Notify } from "../components/ui";
@@ -64,6 +65,7 @@ export default function Planner({
         </div>
         <span className="tag sample">Estimates, not recorded results</span>
       </div>
+      <ActualCostComparison variableCost={draft.variableCost}/>
       <div className="planner-toolbar">
         <div className="actions">
           <select

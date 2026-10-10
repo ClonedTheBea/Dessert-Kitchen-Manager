@@ -17,6 +17,7 @@ import { flushEdits } from "./autoSave";
 import type { State } from "./types";
 
 import { ErrorBox, type Page } from "./components/ui";
+import Inventory from "./features/Inventory";
 import Ingredients from "./features/Ingredients";
 import Login from "./features/Login";
 import Overview from "./features/Overview";
@@ -83,6 +84,7 @@ export default function App() {
     { name: "Ingredients" as Page, icon: Wheat },
     { name: "Recipes" as Page, icon: BookOpen },
     { name: "Financial planner" as Page, icon: ChartNoAxesCombined },
+    { name: "Inventory" as Page, icon: ChefHat },
   ];
   return (
     <div className="app-shell">
@@ -125,9 +127,6 @@ export default function App() {
         </nav>
         <div className="coming">
           <p className="nav-label">GROWING WITH YOUR KITCHEN</p>
-          <p>
-            Inventory <span>Sprint 2</span>
-          </p>
           <p>
             Orders & reporting <span>Sprint 3</span>
           </p>
@@ -210,6 +209,7 @@ export default function App() {
               {page === "Financial planner" && (
                 <Planner state={state} refresh={refresh} notify={setToast} />
               )}
+              {page === "Inventory" && <Inventory state={state} />}
               {page === "Settings" && <SettingsPage state={state} />}
             </>
           )}

@@ -84,6 +84,7 @@ app.MapPost("/api/auth/login", async (PasswordRequest input, HttpContext ctx) =>
     await SignIn(ctx); return Results.Ok(new { ok = true });
 }).RequireRateLimiting("login");
 var api = app.MapGroup("/api").RequireAuthorization();
+api.MapInventory(store,writeLock);
 api.MapGet("/drafts/{kind}/{id}",(string kind,string id)=>Results.Json(store.Draft(kind,id)));
 api.MapPost("/drafts/{kind}/{id}",(string kind,string id,DraftInput input)=>{lock(writeLock)return store.SaveDraft(kind,id,input);});
 api.MapPost("/drafts/{kind}/{id}/publish",(string kind,string id,PublishRequest request)=>

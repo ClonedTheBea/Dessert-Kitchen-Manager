@@ -1,6 +1,6 @@
 # Dessert Kitchen Manager
 
-A private Windows app for costing your first cheesecake pots and brownies and planning a UK dessert kitchen. **Sprint 1.1.1 is implemented and ready for owner acceptance.** All financial dashboard figures are planning estimates, not recorded sales or stock. See the [Sprint 1.1.1 hotfix handover and acceptance checklist](docs/SPRINT-1.1.1.md).
+A private Windows app for costing your first cheesecake pots and brownies and planning a UK dessert kitchen. **Sprint 2 inventory is implemented and ready for owner acceptance.** The planner remains estimates; Inventory records actual purchases, production, counts and waste. See the [Sprint 2 handover and acceptance checklist](docs/SPRINT-2.md). Sprint 1.1.1 is preserved at the `sprint-1.1.1-accepted` tag.
 
 ## Start
 
@@ -26,6 +26,10 @@ Open **http://127.0.0.1:5080**. Create your owner password (12+ characters) on f
 6. Use **Financial planner** for platform fees and fixed costs. The starting £21 basket, £5 variable cost, 30% commission and 20% unrecovered commission VAT give **£8.44 contribution/order** and **163 orders/month** to cover £1,375 fixed costs.
 
 Owner hours (20/week), desired pay (£12/hour), orders (20/evening), investment (£5,000) and recovery period (24 months) are additional editable sample assumptions, not business facts.
+
+## Record actual stock
+
+Open **Inventory → Purchases** to receive real purchases against existing ingredients and suppliers. Drafts autosave without affecting stock. Confirm a receipt, then use **Production** to preview shortages and record completed batches. Review supplier/production dates and evidence before using stock. **Finished Products**, **Stocktake**, **Waste**, **Shopping Lists** and **Movement History** provide the rest of the workflow. Choose the appropriate testing/commercial location. All illustrative acceptance data was kept out of the live database.
 
 ## Available functionality
 
@@ -85,7 +89,7 @@ For IIS: build the client, publish the server, install the matching ASP.NET Host
 
 Known limits and scheduled work:
 
-- **Sprint 2:** actual purchases, stock ledger, production, stocktakes, waste and alerts. Minimum-stock settings are stored but no stock balances are fabricated.
+- **Sprint 2 implemented:** actual purchases, FIFO stock ledger, versioned production, finished stock, stocktakes, waste, date reviews, alerts and shopping lists. Inventory starts empty; no stock balances are fabricated. See the handover for valuation conventions and limits.
 - **Sprint 3:** orders, sales, real-schema CSV imports/reconciliation and financial CSV/Excel reporting exports. Internal allergen CSV export is available now.
 - **Sprint 4:** verified effective-dated tax modelling, P&L and cash flow. Current VAT fields are explicit assumptions, not product classifications, tax estimates or filing functionality.
 - **Sprint 5:** authorised API adapters, multi-user roles and staff management. Staffing cost assumptions are available now; payroll is not. No private platform access or successful connections are simulated.

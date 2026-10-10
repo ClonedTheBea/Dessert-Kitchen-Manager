@@ -12,7 +12,7 @@ import {
 } from "react";
 
 export type Page =
-  "Overview" | "Ingredients" | "Recipes" | "Financial planner" | "Settings";
+  "Overview" | "Ingredients" | "Recipes" | "Financial planner" | "Inventory" | "Settings";
 export type Notify = (message: string) => void;
 const units = ["g", "kg", "ml", "l", "each"];
 export const clone = <T,>(value: T): T => structuredClone(value);
