@@ -1,0 +1,17 @@
+**/bin/
+**/obj/
+**/node_modules/
+server/wwwroot/
+**/TestResults/
+data/
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.log
+.tools/
+client/dist/
+client/playwright-report/
+client/test-results/
+artifacts/
+*.tsbuildinfo
