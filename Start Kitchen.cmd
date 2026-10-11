@@ -1,16 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-if not exist "client\node_modules" (
-  call npm.cmd --prefix client ci
-  if errorlevel 1 goto failed
-)
-call npm.cmd --prefix client run build
-if errorlevel 1 goto failed
-echo.
-echo Open http://127.0.0.1:5080 after the server starts.
-echo Keep this window open. Press Ctrl+C to stop the kitchen.
-dotnet run --project server
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\Serve-Kitchen.ps1"
 if errorlevel 1 goto failed
 exit /b 0
 :failed

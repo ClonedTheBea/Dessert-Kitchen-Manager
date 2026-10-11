@@ -6,7 +6,9 @@ A private Windows app for recipes, stock and dessert-kitchen planning. **Sprint 
 
 Requirements: .NET 8 runtime, .NET SDK 8 or 9, Node.js 22+ and npm. These were available on the development computer. Upgrade to .NET 10 LTS before network deployment; .NET 8 support ends 10 November 2026 ([Microsoft lifecycle](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core)).
 
-Double-click **Start Kitchen.cmd**, or run from this folder:
+Double-click **Start Kitchen.cmd** to build and serve the site locally. Keep its window open while using the app at **http://127.0.0.1:5080**. Close that window or press **Ctrl+C** to stop serving it; your saved kitchen data stays on disk. The launcher binds only to this computer and stops its server even if the window is closed abruptly. It refuses to start if another server is already using port 5080.
+
+Alternatively, run from this folder:
 
 ```powershell
 npm.cmd --prefix client ci
