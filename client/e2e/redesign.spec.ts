@@ -76,7 +76,7 @@ for (const width of [1440, 390])
     await page.locator(".table-link").first().click();
     await review("ingredient-edit");
     await page.getByRole("button", { name: "Close dialog" }).click();
-    await page.getByRole("button", { name: "Update price" }).first().click();
+    await page.getByRole("button", { name: "Update Price" }).first().click();
     await review("price");
     await page.getByRole("button", { name: "Close dialog" }).click();
     await page.getByRole("button", { name: "Suppliers", exact: true }).click();
@@ -161,7 +161,7 @@ test("one ingredient workflow creates a supplier and VAT-aware quote with retain
   await page.getByLabel("VAT rate (%)").fill("20");
   await page.getByLabel("Recover input VAT in costing").check();
   await expect(
-    page.getByText(/£0.005000 per g after VAT treatment/),
+    page.getByText(/£5.00\/kg · 50p\/100g after VAT treatment/),
   ).toBeVisible();
   await page.getByRole("button", { name: "Close dialog" }).click();
   await navigate(page, "Home");

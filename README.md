@@ -98,3 +98,5 @@ Known limits and scheduled work:
 - No password recovery/change UI yet. Keep the owner password safe and retain backups.
 - Child recipe labour/packaging is included in its sub-recipe line total. The top-level packaging/labour breakdown shows directly entered costs; the total includes both.
 - Sample recipes, allergens and storage notes are illustrative. Verify actual recipes and supplier specifications before production.
+
+Current usability handover: [Sprint 2.1.1](docs/SPRINT-2.1.1.md), including household stock, grouped inventory, shortage recovery, validation and the manual acceptance checklist.

@@ -149,8 +149,9 @@ for (const width of [1280, 390])
       .click();
     let d = page.getByRole("dialog");
     await d.getByLabel("Recipe", { exact: true }).selectOption("lemon-pot");
+    await d.getByText(/Recipe version ·/).click();
     await d.getByLabel("Recipe version").selectOption("1");
-    await d.getByLabel(/Planned output/).fill("4");
+    await d.getByLabel(/Quantity to make/).fill("4");
     await d
       .getByText("Adjust yield, costs, location or batch details", {
         exact: true,
@@ -169,10 +170,10 @@ for (const width of [1280, 390])
     await d
       .getByRole("button", { name: "Confirm completed production" })
       .click();
-    await expect(
-      d.getByRole("button", { name: "Confirmed", exact: true }),
-    ).toBeVisible();
-    await d.getByRole("button", { name: "Close dialog" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("status")).toContainText(
+      "Batch recorded: 4 each",
+    );
     let s = await stock(page);
     const op = s.operations.find(
       (o) =>
@@ -189,6 +190,11 @@ for (const width of [1280, 390])
         .reduce((n, a) => n + a.quantity, 0),
     ).toBe(300);
     await tab(page, "Finished Products");
+    await page
+      .locator(".stock-group")
+      .filter({ hasText: "Lemon cheesecake pot" })
+      .getByRole("button", { name: "Manage", exact: true })
+      .click();
     let card = page
       .locator(".inventory-stock")
       .filter({ hasText: production.batchReference });

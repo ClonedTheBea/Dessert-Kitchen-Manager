@@ -241,9 +241,13 @@ export default function Planner({
                     ([label, count]) => (
                       <div key={label}>
                         <div>
-                          <span>{label}</span>
+                          <span>
+                            {label} {label.includes("profit") ? "/ month" : ""}
+                          </span>
                           <strong>
-                            {count === null ? "Not achievable" : number(count)}
+                            {count === null
+                              ? "Not achievable"
+                              : `${number(count)} orders / month`}
                           </strong>
                         </div>
                         <div className="bar-track">

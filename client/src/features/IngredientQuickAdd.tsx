@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, today } from "../api";
+import { api, today, unitPrice } from "../api";
 import { SaveStatus, useAutoSave } from "../autoSave";
 import { ErrorBox, Field, Modal, Num, Unit } from "../components/ui";
 import type { Ingredient, Price, State } from "../types";
@@ -204,7 +204,7 @@ export default function IngredientQuickAdd({
               </div>
               <p className="notice">
                 {preview
-                  ? `£${preview.cost.toFixed(6)} per ${preview.unit} after VAT treatment`
+                  ? `${unitPrice(preview.cost, preview.unit)} after VAT treatment`
                   : previewError || "Calculating unit cost…"}
                 . This creates a price quote; receive actual stock under Stock →
                 Purchases.

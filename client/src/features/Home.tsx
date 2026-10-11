@@ -243,7 +243,7 @@ export default function Home({
                   </strong>
                   <p>
                     {r.actualYield} {r.unit} · {r.batchId} ·{" "}
-                    {money(r.batchCost)} actual cost
+                    {money(r.batchCost)} · {r.valuationStatus ?? "known"} cost
                   </p>
                   <small>
                     {

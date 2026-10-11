@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAutoSave, SaveStatus } from "../autoSave";
-import { api, date, money, number, today } from "../api";
+import { api, date, money, number, today, unitPrice } from "../api";
 import type { Ingredient, Price, State } from "../types";
 
 import { ErrorBox, Field, Modal, Num, Tag, Unit } from "../components/ui";
@@ -9,11 +9,13 @@ export default function PriceEditor({
   state,
   close,
   saved,
+  purchase,
 }: {
   ingredient: Ingredient;
   state: State;
   close: () => void;
   saved: () => Promise<void>;
+  purchase: () => void;
 }) {
   const latest = state.prices
     .filter(
@@ -57,15 +59,33 @@ export default function PriceEditor({
     `/drafts/price/${ingredient.id}`,
     true,
   );
+  const [unitCost, setUnitCost] = useState<{ unit: string; cost: number }>();
+  useEffect(() => {
+    let active = true;
+    setUnitCost(undefined);
+    const timer = setTimeout(
+      () =>
+        api<{ unit: string; cost: number }>("/prices/preview", draft)
+          .then((r) => {
+            if (active) setUnitCost(r);
+          })
+          .catch(() => {}),
+      250,
+    );
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [draft]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const update = <K extends keyof Price>(key: K, value: Price[K]) =>
     setDraft({ ...draft, [key]: value });
   return (
-    <Modal title={`Prices · ${ingredient.name}`} close={close} wide>
+    <Modal title={`Supplier price · ${ingredient.name}`} close={close} wide>
       <p className="muted">
-        Add a supplier quote. History is retained; existing recipe versions are
-        never repriced automatically.
+        Set the typical pack price. This does not add stock. History is
+        retained; existing recipe versions are never repriced automatically.
       </p>
       {ingredient.archived && (
         <p className="review-warning">
@@ -101,9 +121,14 @@ export default function PriceEditor({
             Confirm new price
           </button>
         </div>
+        <p className="notice">
+          {unitCost
+            ? unitPrice(unitCost.cost, unitCost.unit)
+            : "Enter a valid pack size and price to see unit pricing."}
+        </p>
         <p className="help">
-          Automatic saves retain a working quote. Confirm once to add it to
-          immutable price history.
+          Price edits are kept as a draft. Confirm new price to add it to
+          history.
         </p>
         <fieldset
           className="editor-fields"
@@ -202,6 +227,18 @@ export default function PriceEditor({
         </fieldset>
         <ErrorBox error={error} />
       </form>
+      <p>
+        Already bought this item? Record the receipt to add stock. The purchase
+        starts with the latest confirmed supplier price.
+      </p>
+      <button
+        className="secondary"
+        onClick={async () => {
+          if (await autosave.flush()) purchase();
+        }}
+      >
+        Record Purchase
+      </button>
       <details>
         <summary>Price history</summary>
         <div

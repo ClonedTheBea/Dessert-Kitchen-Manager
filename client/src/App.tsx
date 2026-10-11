@@ -237,6 +237,7 @@ export default function App() {
                 <Ingredients
                   key={navSeq}
                   initialAction={action}
+                  purchase={(id) => navigate("Inventory", `purchase:${id}`)}
                   state={state}
                   refresh={refresh}
                   notify={setToast}

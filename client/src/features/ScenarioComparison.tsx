@@ -93,8 +93,8 @@ export default function ScenarioComparison({
                 <tr key={k}>
                   <td>
                     {k === "Business expenses"
-                      ? "Business break-even orders"
-                      : "Break-even incl. owner"}
+                      ? "Business break-even orders / month"
+                      : "Break-even incl. owner / month"}
                   </td>
                   <td>{model.requiredOrders[k] ?? "Not achievable"}</td>
                   <td>{data.model.requiredOrders[k] ?? "Not achievable"}</td>

@@ -9,6 +9,7 @@ public static class InventoryEndpoints
         var inventory=api.MapGroup("/inventory");
         inventory.MapGet("/state",()=>{lock(gate)return store.InventoryState();});
         inventory.MapPost("/locations",(StockLocation input)=>{lock(gate)return store.AddLocation(input);});
+        inventory.MapPost("/existing",(ExistingStockInput input)=>{lock(gate)return store.AddExistingStock(input);});
         inventory.MapPost("/purchase",(PurchaseInput input)=>{lock(gate)return store.Receive(input);});
         inventory.MapPost("/production/preview",(ProductionInput input)=>{lock(gate)return store.PreviewProduction(input);});
         inventory.MapPost("/production",(ProductionInput input)=>{lock(gate)return store.Produce(input);});
@@ -33,6 +34,7 @@ public static class InventoryEndpoints
                 if(d.Revision!=request.Revision)throw new ConflictException("The draft changed in another window. Reopen it before confirming.");
                 if(d.Result!=null)return Results.Json(d.Result);
                 object result=kind switch{
+                    "existing"=>store.AddExistingStock(d.Body.Deserialize<ExistingStockInput>(Store.Json)!,draft:d),
                     "purchase"=>store.Receive(d.Body.Deserialize<PurchaseInput>(Store.Json)!,draft:d),
                     "production"=>store.Produce(d.Body.Deserialize<ProductionInput>(Store.Json)!,draft:d),
                     "waste" or "transfer" or "adjustment"=>store.StockAction(kind,d.Body.Deserialize<StockActionInput>(Store.Json)!,draft:d),

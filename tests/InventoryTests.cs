@@ -28,7 +28,7 @@ public class InventoryTests
     {var(s,_)=Kitchen();var lots=s.Receive(Purchase(Line("cream",.5m,2,"l"),Line("pot",12,1,"each") with{Packs=2,PackLabel="case",PacksPerCase=4}));Assert.Equal(500,lots[0].InitialQuantity);Assert.Equal(96,lots[1].InitialQuantity);var before=s.StockMovements().Count;Assert.Throws<ValidationException>(()=>s.Receive(Purchase(Line(unit:"ml"))));Assert.Equal(before,s.StockMovements().Count);}
     [Theory][InlineData(true,true,10)][InlineData(true,false,12)][InlineData(false,true,12)][InlineData(false,false,14.4)]
     public void VatBasisDeterminesInventoryCost(bool inclusive,bool recovery,decimal expected)
-    {var(s,_)=Kitchen();var lot=s.Receive(Purchase(Line(price:12) with{VatRate=20,PriceIncludesVat=inclusive,RecoverVat=recovery}))[0];Assert.InRange(lot.UnitCost*280,expected-.00000000000000000001m,expected+.00000000000000000001m);}
+    {var(s,_)=Kitchen();var lot=s.Receive(Purchase(Line(price:12) with{VatRate=20,PriceIncludesVat=inclusive,RecoverVat=recovery}))[0];Assert.NotNull(lot.UnitCost);Assert.InRange(lot.UnitCost.Value*280,expected-.00000000000000000001m,expected+.00000000000000000001m);}
     [Fact] public void ReceiptRetriesAreIdempotentAndMultiLineFailureRollsBack()
     {var(s,_)=Kitchen();var p=Purchase(Line());var lot=s.Receive(p)[0];Assert.Equal(JsonSerializer.Serialize(lot),JsonSerializer.Serialize(s.Receive(p)[0]));Assert.Single(s.StockMovements());Assert.Throws<ConflictException>(()=>s.Receive(p with{Notes="Different"}));Assert.Throws<ValidationException>(()=>s.Receive(Purchase(Line(),Line("missing"))));Assert.Single(s.StockLots());Assert.Single(s.StockOperations());}
     [Fact] public void PartialPacksAreConsumedAtActualFifoCostAndLaterQuotesDoNotRewriteHistory()

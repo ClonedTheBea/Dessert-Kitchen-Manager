@@ -932,3 +932,68 @@ main:focus {
 .scale-section {
   scroll-margin-top: 170px;
 }
+
+/* Sprint 2.1.1: keep the theme, simplify everyday stock tasks. */
+.stock-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  margin: 12px 0;
+  padding: 16px;
+  background: var(--surface-raised);
+}
+.stock-group-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.stock-group-summary p {
+  margin: 6px 0;
+}
+.stock-group-summary h3 {
+  margin: 0;
+}
+.stock-warning {
+  color: var(--warning);
+  font-weight: 600;
+}
+.stock-lots {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.stock-lots .inventory-stock {
+  background: var(--surface);
+  padding: 16px;
+  margin: 12px 0;
+}
+.stock-lots .actions {
+  flex-wrap: wrap;
+}
+.recipe-version-choice {
+  grid-column: 1/-1;
+}
+.shortage-help {
+  background: var(--warning-soft);
+  padding: 16px;
+  border-radius: var(--radius-card);
+  margin-bottom: 16px;
+}
+.shortage-help .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 850px) {
+  .stock-group {
+    padding: 12px;
+  }
+  .stock-group-summary {
+    align-items: flex-start;
+  }
+  .stock-group-summary button {
+    flex-shrink: 0;
+  }
+  .stock-lots .inventory-stock {
+    padding: 12px;
+  }
+}

@@ -151,7 +151,7 @@ export function DraftForm<T extends object>({
   kind: string;
   initial: T;
   children: (value: T, set: (v: T) => void) => ReactNode;
-  done: () => Promise<void>;
+  done: (result?: unknown) => Promise<void>;
   label: string;
   id?: string;
 }) {
@@ -181,12 +181,12 @@ export function DraftForm<T extends object>({
             try {
               save.reset(value, true);
               if (!(await save.flush())) return;
-              await api(`/inventory/confirm/${kind}/${id}`, {
+              const result = await api(`/inventory/confirm/${kind}/${id}`, {
                 revision: save.revision(),
               });
               setPosted(true);
               save.markPublished();
-              await done();
+              await done(result);
             } catch (e) {
               setError((e as Error).message);
             } finally {
@@ -206,11 +206,13 @@ export function PurchaseForm({
   inventory,
   done,
   defaultLocation,
+  initialIngredient,
 }: {
   state: State;
   inventory: InventoryState;
   done: () => Promise<void>;
   defaultLocation: string;
+  initialIngredient?: string;
 }) {
   const blank = (): PurchaseLine => ({
     ingredientId: "",
@@ -228,12 +230,41 @@ export function PurchaseForm({
     dateReviewed: false,
     dateEvidence: "",
   });
+  const quote = state.prices
+    .filter(
+      (p) =>
+        p.ingredientId === initialIngredient &&
+        p.effectiveDate <= today() &&
+        state.suppliers.some((s) => s.id === p.supplierId && !s.archived),
+    )
+    .sort(
+      (a, b) =>
+        b.effectiveDate.localeCompare(a.effectiveDate) ||
+        b.recordedAt.localeCompare(a.recordedAt),
+    )[0];
   const initial: Purchase = {
     operationId: identity(),
-    supplierId: "",
+    supplierId: quote?.supplierId ?? "",
     locationId: defaultLocation,
     date: today(),
-    lines: [blank()],
+    lines: [
+      initialIngredient
+        ? {
+            ...blank(),
+            ingredientId: initialIngredient,
+            unit:
+              quote?.unit ??
+              state.ingredients.find((i) => i.id === initialIngredient)
+                ?.baseUnit ??
+              "g",
+            packSize: quote?.packQuantity ?? 1,
+            packPrice: quote?.packPrice ?? 0,
+            vatRate: quote?.vatRate ?? 0,
+            priceIncludesVat: quote?.priceIncludesVat ?? true,
+            recoverVat: quote?.recoverVat ?? false,
+          }
+        : blank(),
+    ],
     reference: "",
     notes: "",
   };
@@ -265,6 +296,7 @@ export function PurchaseForm({
   return (
     <DraftForm
       kind="purchase"
+      id={initialIngredient ? `ingredient-${initialIngredient}` : "current"}
       initial={initial}
       label="Confirm stock receipt"
       done={done}
@@ -508,10 +540,12 @@ export function RecipeChoice({
   state,
   value,
   change,
+  simple = false,
 }: {
   state: State;
   value: Plan;
   change: (p: Plan) => void;
+  simple?: boolean;
 }) {
   const [versions, setVersions] = useState<Version[]>([]),
     [error, setError] = useState("");
@@ -553,20 +587,42 @@ export function RecipeChoice({
           name: r.recipe.name,
         }))}
       />
-      <Select
-        label="Recipe version"
-        value={String(value.version)}
-        change={(version) => change({ ...value, version: Number(version) })}
-        options={versions.map((r) => ({
-          id: String(r.recipe.revision),
-          name: `Version ${r.recipe.revision}`,
-        }))}
-      />
       <Numeric
-        label={`Planned output (${versions.find((r) => r.recipe.revision === value.version)?.recipe.yieldUnit ?? "recipe units"})`}
+        label={`${simple ? "Quantity to make" : "Planned output"} (${versions.find((r) => r.recipe.revision === value.version)?.recipe.yieldUnit ?? "recipe units"})`}
         value={value.quantity}
         change={(quantity) => change({ ...value, quantity })}
       />
+      {simple ? (
+        <details className="recipe-version-choice">
+          <summary>Recipe version · {value.version}</summary>{" "}
+          <Select
+            label="Recipe version"
+            value={String(value.version)}
+            change={(version) => change({ ...value, version: Number(version) })}
+            options={versions.map((r) => ({
+              id: String(r.recipe.revision),
+              name: `Version ${r.recipe.revision}`,
+            }))}
+          />
+          <p>
+            New batches start with the latest published version. A resumed draft
+            keeps your selected version.
+          </p>
+        </details>
+      ) : (
+        <>
+          {" "}
+          <Select
+            label="Recipe version"
+            value={String(value.version)}
+            change={(version) => change({ ...value, version: Number(version) })}
+            options={versions.map((r) => ({
+              id: String(r.recipe.revision),
+              name: `Version ${r.recipe.revision}`,
+            }))}
+          />
+        </>
+      )}
       <ErrorBox error={error} />
     </>
   );
@@ -576,11 +632,13 @@ export function ProductionForm({
   inventory,
   done,
   defaultLocation,
+  resolveShortage,
 }: {
   state: State;
   inventory: InventoryState;
-  done: () => Promise<void>;
+  done: (result?: unknown) => Promise<void>;
   defaultLocation: string;
+  resolveShortage: (kind: string, plan: Production) => Promise<void>;
 }) {
   const r = state.recipes.find((v) => v.recipe.isSellable !== false)?.recipe;
   const initial: Production = {
@@ -618,6 +676,7 @@ export function ProductionForm({
             <h3>1. What are you making?</h3>
             <div className="inventory-fields">
               <RecipeChoice
+                simple
                 state={state}
                 value={{
                   recipeId: v.recipeId,
@@ -638,14 +697,19 @@ export function ProductionForm({
               />
             </div>
             <p>
-              Making {v.actualYield} recipe units ·{" "}
-              {inventory.locations.find((l) => l.id === v.locationId)?.name} ·{" "}
-              {v.batchReference}
+              Making {number(v.actualYield)}{" "}
+              {state.recipes.find((r) => r.recipe.id === v.recipeId)?.recipe
+                .yieldUnit ?? "units"}{" "}
+              · {inventory.locations.find((l) => l.id === v.locationId)?.name}
             </p>
           </section>
           <section className="workflow-step">
             <h3>2. Check your ingredients</h3>
-            <ProductionCheck value={v} set={set} />
+            <ProductionCheck
+              value={v}
+              set={set}
+              resolveShortage={(kind) => resolveShortage(kind, v)}
+            />
           </section>
           <details>
             <summary>Adjust yield, costs, location or batch details</summary>
@@ -768,9 +832,11 @@ export function ProductionForm({
 function ProductionCheck({
   value: v,
   set,
+  resolveShortage,
 }: {
   value: Production;
   set: (v: Production) => void;
+  resolveShortage: (kind: string) => Promise<void>;
 }) {
   const { result: p, error } = usePreview<ProductionPreview>(
     "/inventory/production/preview",
@@ -778,7 +844,7 @@ function ProductionCheck({
   );
   return (
     <section className="inventory-line">
-      <h3>Requirements and actual usage</h3>
+      <h3>Ingredients for this batch</h3>
       <ErrorBox error={error} />
       {!p && !error && <p>Checking usable stock…</p>}
       {p && (
@@ -788,6 +854,50 @@ function ProductionCheck({
               ? "Usable stock covers the selected actual quantities."
               : "Stock shortage — receive usable stock before confirming, or record an explained actual usage change."}
           </p>
+          {!p.canProduce && (
+            <div className="shortage-help">
+              <h4>What’s missing?</h4>
+              <ul>
+                {p.requirements
+                  .filter((x) => x.shortage > 0)
+                  .map((x) => (
+                    <li key={x.requirement.key}>
+                      {x.requirement.name}: need{" "}
+                      {number(
+                        v.actualUsage?.find((a) => a.key === x.requirement.key)
+                          ?.quantity ?? x.requirement.quantity,
+                      )}{" "}
+                      {x.requirement.unit}, available {number(x.available)}{" "}
+                      {x.requirement.unit}, missing{" "}
+                      <strong>
+                        {number(x.shortage)} {x.requirement.unit}
+                      </strong>
+                    </li>
+                  ))}
+              </ul>
+              <div className="actions">
+                <button
+                  className="secondary"
+                  onClick={() => resolveShortage("purchase")}
+                >
+                  Record Purchase
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => resolveShortage("adjustment")}
+                >
+                  Manage / adjust stock
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => resolveShortage("shopping")}
+                >
+                  Create shopping list
+                </button>
+              </div>
+              <p>Your production draft is kept when you leave this screen.</p>
+            </div>
+          )}
           <div
             className="inventory-table"
             tabIndex={0}
@@ -801,7 +911,7 @@ function ProductionCheck({
                   <th>Planned</th>
                   <th>Usable</th>
                   <th>Shortfall</th>
-                  <th>Actual usage</th>
+                  {v.actualUsage && <th>Actual usage</th>}
                 </tr>
               </thead>
               <tbody>
@@ -816,66 +926,72 @@ function ProductionCheck({
                       <td>{number(r.quantity)}</td>
                       <td>{number(available)}</td>
                       <td>{number(shortage)}</td>
-                      <td>
-                        {v.actualUsage ? (
-                          <Num
-                            aria-label={`Actual ${r.name}`}
-                            value={
-                              v.actualUsage.find((a) => a.key === r.key)
-                                ?.quantity ?? r.quantity
-                            }
-                            onChange={(quantity) =>
-                              set({
-                                ...v,
-                                actualUsage: v.actualUsage!.map((a) =>
-                                  a.key === r.key ? { ...a, quantity } : a,
-                                ),
-                              })
-                            }
-                          />
-                        ) : (
-                          number(r.quantity)
-                        )}
-                      </td>
+                      {v.actualUsage && (
+                        <td>
+                          {v.actualUsage ? (
+                            <Num
+                              aria-label={`Actual ${r.name}`}
+                              value={
+                                v.actualUsage.find((a) => a.key === r.key)
+                                  ?.quantity ?? r.quantity
+                              }
+                              onChange={(quantity) =>
+                                set({
+                                  ...v,
+                                  actualUsage: v.actualUsage!.map((a) =>
+                                    a.key === r.key ? { ...a, quantity } : a,
+                                  ),
+                                })
+                              }
+                            />
+                          ) : (
+                            number(r.quantity)
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ),
                 )}
               </tbody>
             </table>
           </div>
-          <button
-            className="secondary"
-            onClick={() =>
-              set({
-                ...v,
-                actualUsage: v.actualUsage
-                  ? null
-                  : p.requirements.map((x) => ({
-                      key: x.requirement.key,
-                      quantity: x.requirement.quantity,
-                    })),
-              })
-            }
-          >
-            {v.actualUsage
-              ? "Use planned quantities"
-              : "Adjust actual quantities"}
-          </button>
-          <p>
-            Published estimate (including recipe labour):{" "}
-            {money(p.estimatedRecipeCost)}. Allocated materials:{" "}
-            {money(p.actualMaterialCost)}
-            {!p.canProduce ? " (incomplete due to shortage)" : ""}. Actual
-            labour and other costs are entered separately above.
-          </p>
           <details>
-            <summary>Lots allocated by FIFO</summary>
-            {p.allocations.map((a, i) => (
-              <p key={i}>
-                {a.item} · {a.batchReference || a.lotId} · {number(a.quantity)}{" "}
-                {a.unit} · {money(a.cost)}
-              </p>
-            ))}
+            <summary>Actual quantities, FIFO & cost details</summary>
+            <button
+              className="secondary"
+              onClick={() =>
+                set({
+                  ...v,
+                  actualUsage: v.actualUsage
+                    ? null
+                    : p.requirements.map((x) => ({
+                        key: x.requirement.key,
+                        quantity: x.requirement.quantity,
+                      })),
+                })
+              }
+            >
+              {v.actualUsage
+                ? "Use planned quantities"
+                : "Adjust actual quantities"}
+            </button>
+            <p>
+              Published estimate (including recipe labour):{" "}
+              {money(p.estimatedRecipeCost)}. Allocated materials:{" "}
+              {money(p.actualMaterialCost)}
+              {!p.canProduce ? " (incomplete due to shortage)" : ""}. Actual
+              labour and other costs are entered separately. Valuation:{" "}
+              {p.valuationStatus ?? "known"}.
+            </p>
+            <details>
+              <summary>Lots allocated by FIFO</summary>
+              {p.allocations.map((a, i) => (
+                <p key={i}>
+                  {a.item} · {a.batchReference || a.lotId} ·{" "}
+                  {number(a.quantity)} {a.unit} · {money(a.cost)}
+                </p>
+              ))}
+            </details>
           </details>
         </>
       )}
@@ -1093,18 +1209,28 @@ export function ShoppingForm({
   state,
   inventory,
   defaultLocation,
+  initialPlan,
 }: {
   state: State;
   inventory: InventoryState;
   defaultLocation: string;
+  initialPlan?: Plan;
 }) {
   const [v, set] = useState<Shopping>({
     locationId: defaultLocation,
-    plans: [],
+    plans: initialPlan ? [initialPlan] : [],
     packOverrides: {},
     notes: "",
   });
-  const save = useAutoSave(v, set, "/drafts/inventory-shopping/current", true);
+  const draftId = initialPlan
+    ? `production-${initialPlan.recipeId}-v${initialPlan.version}-${initialPlan.quantity}-${defaultLocation}`
+    : "current";
+  const save = useAutoSave(
+    v,
+    set,
+    `/drafts/inventory-shopping/${draftId}`,
+    true,
+  );
   const { result: rows, error } = usePreview<ShoppingRow[]>(
     "/inventory/shopping",
     v,
@@ -1248,7 +1374,9 @@ export function ShoppingForm({
             className="secondary"
             onClick={async () => {
               if (await save.flush())
-                window.location.assign("/api/inventory/shopping/current/csv");
+                window.location.assign(
+                  `/api/inventory/shopping/${draftId}/csv`,
+                );
             }}
           >
             Export CSV

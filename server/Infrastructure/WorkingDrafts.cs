@@ -13,7 +13,7 @@ public sealed partial class Store
     }
     public WorkingDraft SaveDraft(string kind,string id,DraftInput input)
     {
-        Guard.Require(kind is "ingredient-setup" or "recipe" or "price" or "review" or "ingredient" or "inventory-purchase" or "inventory-production" or "inventory-waste" or "inventory-transfer" or "inventory-adjustment" or "inventory-stocktake" or "inventory-shopping","Unsupported working draft.");
+        Guard.Require(kind is "inventory-existing" or "ingredient-setup" or "recipe" or "price" or "review" or "ingredient" or "inventory-purchase" or "inventory-production" or "inventory-waste" or "inventory-transfer" or "inventory-adjustment" or "inventory-stocktake" or "inventory-shopping","Unsupported working draft.");
         Guard.Text(id,"Draft ID",200);Guard.Text(input.RequestId,"Save request ID",100);
         Guard.Require(input.Body.ValueKind==JsonValueKind.Object,"Draft must be a record.");
         var old=Draft(kind,id);
@@ -38,6 +38,7 @@ public sealed partial class Store
         if(kind=="inventory-purchase")Execute(db,tx,"INSERT OR IGNORE INTO record_dependencies SELECT 'draft',$id,kind,id,'Working purchase: '||$id FROM documents WHERE (kind='supplier' AND id=json_extract($body,'$.supplierId')) OR (kind='ingredient' AND id IN (SELECT json_extract(value,'$.ingredientId') FROM json_each($body,'$.lines')))",("$id",kind+":"+id),("$body",input.Body.GetRawText()));
         if(kind is "inventory-production" or "inventory-shopping")Execute(db,tx,"INSERT OR IGNORE INTO record_dependencies SELECT 'draft',$id,kind,id,'Working production plan: '||$id FROM documents WHERE kind='recipe' AND (id=json_extract($body,'$.recipeId') OR id IN (SELECT json_extract(value,'$.recipeId') FROM json_each($body,'$.plans')))",("$id",kind+":"+id),("$body",input.Body.GetRawText()));
         if(kind=="ingredient-setup")Execute(db,tx,"INSERT OR IGNORE INTO record_dependencies SELECT 'draft',$id,kind,id,'Working ingredient setup: '||$id FROM documents WHERE kind='supplier' AND id=json_extract($body,'$.price.supplierId')",("$id",kind+":"+id),("$body",input.Body.GetRawText()));
+        if(kind=="inventory-existing")Execute(db,tx,"INSERT OR IGNORE INTO record_dependencies SELECT 'draft',$id,kind,id,'Existing stock draft: '||$id FROM documents WHERE kind=json_extract($body,'$.kind') AND id=json_extract($body,'$.itemId')",("$id",kind+":"+id),("$body",input.Body.GetRawText()));
         tx.Commit();return Draft(kind,id)!;
     }
     static void CompleteDraft(SqliteConnection db,SqliteTransaction tx,WorkingDraft? draft,object result)

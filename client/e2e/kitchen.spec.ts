@@ -53,7 +53,7 @@ test("owner setup, catalogue, quotes, recipe costing, versions, scenarios and ba
   const row = page.getByRole("row").filter({
     has: page.getByRole("button", { name: "Test cream cheese", exact: true }),
   });
-  await row.getByRole("button", { name: "Update price" }).click();
+  await row.getByRole("button", { name: "Update Price" }).click();
   await page
     .getByRole("combobox", { name: "Supplier", exact: true })
     .selectOption({ label: "Local bakery supplier" });

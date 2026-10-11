@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { flushEdits } from "../autoSave";
 
-import { api, money, number, today } from "../api";
+import { api, money, number, today, unitPrice } from "../api";
 
 import { ErrorBox, Modal } from "../components/ui";
 
@@ -33,6 +33,7 @@ import {
 } from "./InventoryForms";
 
 import "./inventory.css";
+import ExistingStockForm from "./ExistingStockForm";
 
 const tabs = [
   "Overview",
@@ -61,12 +62,17 @@ export default function Inventory({
   state: State;
   initialAction?: string;
 }) {
+  const [expanded, setExpanded] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [resumeProduction, setResumeProduction] = useState(false);
+  const [shoppingPlan, setShoppingPlan] =
+    useState<import("../inventoryTypes").Plan>();
   const [stock, setStock] = useState<InventoryState>(),
     [error, setError] = useState(""),
     [tab, setTab] = useState(
       initialAction === "shopping"
         ? "Shopping Lists"
-        : initialAction === "purchase"
+        : initialAction.startsWith("purchase")
           ? "Purchases"
           : initialAction === "production"
             ? "Production"
@@ -77,7 +83,11 @@ export default function Inventory({
     [sort, setSort] = useState("name"),
     [attention, setAttention] = useState(false),
     [form, setForm] = useState(
-      ["purchase", "production"].includes(initialAction) ? initialAction : "",
+      initialAction.startsWith("purchase")
+        ? "purchase"
+        : initialAction === "production"
+          ? "production"
+          : "",
     ),
     [action, setAction] = useState<Action>(),
     [count, setCount] = useState<Count>(),
@@ -151,10 +161,40 @@ export default function Inventory({
       sort === "expiry"
         ? (a.lot.useBy ?? "9999").localeCompare(b.lot.useBy ?? "9999")
         : sort === "value"
-          ? b.value - a.value
+          ? (b.value ?? -1) - (a.value ?? -1)
           : a.lot.name.localeCompare(b.lot.name),
     );
 
+  const groupKey = (b: Balance) =>
+    `${b.lot.kind}:${b.lot.itemId}:${b.lot.unit}`;
+  const groups = Array.from(new Set(filtered.map(groupKey))).map((key) => ({
+    key,
+    lots: balances.filter((b) => groupKey(b) === key),
+  }));
+  const resolveShortage = async (
+    kind: string,
+    plan: import("../inventoryTypes").Production,
+  ) => {
+    if (!(await flushEdits())) return;
+    setResumeProduction(true);
+    setLocation(plan.locationId);
+    if (kind === "shopping") {
+      setShoppingPlan({
+        recipeId: plan.recipeId,
+        version: plan.version,
+        quantity: plan.plannedYield,
+        heldRecipeIds: plan.heldRecipeIds,
+      });
+      setForm("");
+      setTab("Shopping Lists");
+    } else if (kind === "adjustment") {
+      setForm("");
+      setTab("Stock on Hand");
+      setAttention(false);
+      setQuery("");
+      setExpanded("");
+    } else setForm("purchase");
+  };
   const low = state.ingredients.filter(
     (i) =>
       !i.archived &&
@@ -224,7 +264,31 @@ export default function Inventory({
       </div>
 
       <ErrorBox error={error} />
-
+      {confirmation && (
+        <p className="notice" role="status">
+          {confirmation}
+        </p>
+      )}
+      {resumeProduction && (
+        <div className="notice">
+          <p>
+            Your production draft is saved. Finish updating stock, then return
+            to your batch.
+          </p>
+          <button
+            className="secondary"
+            onClick={async () => {
+              if (await flushEdits()) {
+                await refresh();
+                setForm("production");
+                setTab("Production");
+              }
+            }}
+          >
+            Return to production
+          </button>
+        </div>
+      )}
       <div className="inventory-toolbar">
         <Place
           locations={stock.locations}
@@ -238,6 +302,9 @@ export default function Inventory({
           Refresh stock
         </button>
 
+        <button className="primary" onClick={() => setForm("existing")}>
+          Add Existing Stock
+        </button>
         <button className="secondary" onClick={() => setForm("location")}>
           Add location
         </button>
@@ -283,7 +350,7 @@ export default function Inventory({
             <Summary
               title="Physical stock value"
 
-              value={money(summary.physicalValue)}
+              value={`${money(summary.physicalValue)} · ${summary.valuationStatus}`}
             />
 
             <Summary title="Low-stock ingredients" value={String(low.length)} />
@@ -304,7 +371,7 @@ export default function Inventory({
             <Summary
               title="Waste and consumption"
 
-              value={money(summary.wasteValue)}
+              value={`${money(summary.wasteValue)} · ${summary.wasteValuationStatus}`}
             />
           </div>
 
@@ -448,81 +515,168 @@ export default function Inventory({
             <p>No matching stock lots in this location.</p>
           )}
 
-          {filtered.map((b) => (
-            <article className="inventory-stock" key={b.lot.id}>
-              <div>
-                <h3>
-                  {b.lot.name}{" "}
-                  {b.lot.recipeVersion && (
-                    <small>Version {b.lot.recipeVersion}</small>
-                  )}
-                </h3>
+          {groups.map((g) => {
+            const first = g.lots[0];
+            const usable = g.lots.reduce((sum, b) => sum + b.usable, 0);
+            const held = g.lots.reduce(
+              (sum, b) => sum + b.quantity - b.usable,
+              0,
+            );
+            const warnings = g.lots.filter(
+              (b) => b.usable === 0 || b.status === "Use-by approaching",
+            );
+            return (
+              <article className="stock-group" key={g.key}>
+                <div className="stock-group-summary">
+                  <div>
+                    <h3>{first.lot.name}</h3>
+                    <p>
+                      <strong>
+                        {number(usable)} {first.lot.unit} available
+                      </strong>{" "}
+                      · {first.location.name}
+                    </p>
+                    {held > 0 && (
+                      <p className="error">
+                        {number(held)} {first.lot.unit} unavailable · expired or
+                        awaiting date review
+                      </p>
+                    )}
+                    {warnings.map((b) => (
+                      <p className="stock-warning" key={b.lot.id}>
+                        {b.status}
+                        {b.lot.useBy ? ` · ${b.lot.useBy}` : ""} ·{" "}
+                        {number(b.quantity)} {b.lot.unit}
+                      </p>
+                    ))}
+                    {g.lots.some((b) => b.allergenReviewRequired) && (
+                      <small>Allergen/source information needs review.</small>
+                    )}
+                  </div>
+                  <button
+                    className="secondary"
+                    aria-expanded={expanded === g.key}
+                    onClick={() => setExpanded(expanded === g.key ? "" : g.key)}
+                  >
+                    Manage
+                  </button>
+                </div>
+                {expanded === g.key && (
+                  <div className="stock-lots">
+                    <h4>Individual lots, costs & actions</h4>
+                    {g.lots.map((b) => (
+                      <article className="inventory-stock" key={b.lot.id}>
+                        <div>
+                          <h3>
+                            {b.lot.name}{" "}
+                            {b.lot.recipeVersion && (
+                              <small>Version {b.lot.recipeVersion}</small>
+                            )}
+                          </h3>
 
-                <p>
-                  Batch {b.lot.batchReference || b.lot.id.slice(0, 8)} ·
-                  Received / produced {b.lot.receivedOn}
-                </p>
+                          <p>
+                            Batch {b.lot.batchReference || b.lot.id.slice(0, 8)}{" "}
+                            · Received / produced {b.lot.receivedOn}
+                          </p>
 
-                <p>
-                  <b>
-                    {number(b.quantity)} {b.lot.unit} remaining
-                  </b>{" "}
-                  · {number(b.usable)} usable · {number(b.lot.initialQuantity)}{" "}
-                  originally received / produced
-                </p>
+                          <p>
+                            <b>
+                              {number(b.quantity)} {b.lot.unit} remaining
+                            </b>{" "}
+                            · {number(b.usable)} usable ·{" "}
+                            {number(b.lot.initialQuantity)} originally received
+                            / produced
+                          </p>
 
-                <p>
-                  {money(b.lot.unitCost)} per {b.lot.unit} · {money(b.value)}{" "}
-                  remaining value
-                </p>
+                          <p>
+                            {unitPrice(b.lot.unitCost, b.lot.unit)} ·{" "}
+                            {money(b.value)} remaining value ·{" "}
+                            {b.lot.valuationStatus ?? "known"}
+                          </p>
 
-                <p>
-                  {b.status} · Use-by {b.lot.useBy ?? "not recorded"}
-                </p>
+                          <p>
+                            {b.status} · Use-by {b.lot.useBy ?? "not recorded"}
+                          </p>
 
-                {b.allergenReviewRequired && (
-                  <p className="error">
-                    Ingredient information changed. Review batch allergen
-                    information before use or making dietary claims.
-                  </p>
+                          {b.allergenReviewRequired && (
+                            <p className="error">
+                              Source information is unverified or has changed.
+                              Review batch allergen information before use or
+                              making dietary claims.
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="actions">
+                          <button
+                            className="secondary"
+                            onClick={() => setTrace(b.lot)}
+                          >
+                            Trace batch
+                          </button>
+
+                          <button
+                            className="secondary"
+
+                            onClick={() => openAction("waste", b)}
+                          >
+                            Record waste / sample
+                          </button>
+
+                          <button
+                            className="secondary"
+
+                            onClick={() => openAction("transfer", b)}
+                          >
+                            Transfer
+                          </button>
+
+                          <button
+                            className="secondary"
+
+                            onClick={() => openAction("adjustment", b)}
+                          >
+                            Adjust
+                          </button>
+
+                          <button
+                            className="secondary"
+                            onClick={() => setReview(b.lot)}
+                          >
+                            Review dates
+                          </button>
+                        </div>
+                        <details>
+                          <summary>Movement & adjustment history</summary>
+                          {movements
+                            .filter((m) => m.lotId === b.lot.id)
+                            .map((m) => (
+                              <p key={m.sequence}>
+                                {m.occurredOn} · {m.type} · {number(m.quantity)}{" "}
+                                {m.unit} · {m.actor}
+                                {m.notes && <small>{m.notes}</small>}
+                                <button
+                                  className="secondary"
+                                  onClick={() =>
+                                    setOperation(
+                                      stock.operations.find(
+                                        (o) => o.id === m.operationId,
+                                      )!,
+                                    )
+                                  }
+                                >
+                                  Operation #{m.sequence}
+                                </button>
+                              </p>
+                            ))}
+                        </details>
+                      </article>
+                    ))}
+                  </div>
                 )}
-              </div>
-
-              <div className="actions">
-                <button className="secondary" onClick={() => setTrace(b.lot)}>
-                  Trace batch
-                </button>
-
-                <button
-                  className="secondary"
-
-                  onClick={() => openAction("waste", b)}
-                >
-                  Record waste / sample
-                </button>
-
-                <button
-                  className="secondary"
-
-                  onClick={() => openAction("transfer", b)}
-                >
-                  Transfer
-                </button>
-
-                <button
-                  className="secondary"
-
-                  onClick={() => openAction("adjustment", b)}
-                >
-                  Adjust
-                </button>
-
-                <button className="secondary" onClick={() => setReview(b.lot)}>
-                  Review dates
-                </button>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
 
           {tab === "Stock on Hand" && (
             <details>
@@ -589,9 +743,9 @@ export default function Inventory({
                 </p>
 
                 <p>
-                  Actual batch {money(r.batchCost)} · actual unit{" "}
-                  {money(r.unitCost)} · published batch estimate{" "}
-                  {money(r.estimatedRecipeCost)}
+                  Batch cost ({r.valuationStatus ?? "known"}){" "}
+                  {money(r.batchCost)} · unit {money(r.unitCost)} · published
+                  batch estimate {money(r.estimatedRecipeCost)}
                 </p>
 
                 <p>
@@ -693,8 +847,8 @@ export default function Inventory({
           </button>
 
           <p>
-            Values use the actual cost of each lot. Reversed waste is excluded
-            from totals.
+            Values retain each lot’s known, estimated or unknown cost. Unknown
+            is not zero. Reversed waste is excluded from totals.
           </p>
 
           {[
@@ -708,7 +862,13 @@ export default function Inventory({
           ].map((type) => (
             <p key={type}>
               {type.slice(6).replaceAll("-", " ")}:{" "}
-              <b>{money(summary.wasteByReason[type] ?? 0)}</b>
+              <b>
+                {money(
+                  type in summary.wasteByReason
+                    ? summary.wasteByReason[type]
+                    : 0,
+                )}
+              </b>
             </p>
           ))}
 
@@ -721,7 +881,8 @@ export default function Inventory({
                 {m.occurredOn} ·{" "}
                 {stock.lots.find((l) => l.id === m.lotId)?.name} ·{" "}
                 {number(-m.quantity)} {m.unit} · {m.type.slice(6)} ·{" "}
-                {money(-m.value)} {reversed.has(m.operationId) && "· Reversed"}
+                {money(m.value == null ? null : -m.value)}{" "}
+                {reversed.has(m.operationId) && "· Reversed"}
               </p>
             ))}
         </section>
@@ -729,6 +890,8 @@ export default function Inventory({
 
       {tab === "Shopping Lists" && (
         <ShoppingForm
+          key={shoppingPlan ? "production" : "current"}
+          initialPlan={shoppingPlan}
           defaultLocation={location}
 
           state={state}
@@ -832,7 +995,10 @@ export default function Inventory({
                           {number(m.quantity)} {m.unit}
                         </td>
 
-                        <td>{money(m.value)}</td>
+                        <td>
+                          {money(m.value)}
+                          <small>{l.valuationStatus ?? "known"}</small>
+                        </td>
 
                         <td>
                           <button
@@ -861,17 +1027,36 @@ export default function Inventory({
       {form && (
         <Modal
           title={
-            form === "location"
-              ? "Add stock location"
-              : `${form[0].toUpperCase() + form.slice(1)} draft`
+            form === "existing"
+              ? "Add Existing Stock"
+              : form === "location"
+                ? "Add stock location"
+                : `${form[0].toUpperCase() + form.slice(1)} draft`
           }
 
           wide
 
           close={() => setForm("")}
         >
+          {form === "existing" && (
+            <ExistingStockForm
+              state={state}
+              inventory={stock}
+              defaultLocation={location}
+              done={async () => {
+                await refresh();
+                setForm("");
+                setTab("Stock on Hand");
+              }}
+            />
+          )}
           {form === "purchase" && (
             <PurchaseForm
+              initialIngredient={
+                initialAction.startsWith("purchase:")
+                  ? initialAction.slice(9)
+                  : undefined
+              }
               defaultLocation={location}
 
               state={state}
@@ -883,13 +1068,32 @@ export default function Inventory({
           )}{" "}
           {form === "production" && (
             <ProductionForm
+              resolveShortage={resolveShortage}
               defaultLocation={location}
 
               state={state}
 
               inventory={stock}
 
-              done={refresh}
+              done={async (result) => {
+                const r = result as ProductionResult;
+                const next = await api<InventoryState>("/inventory/state");
+                setStock(next);
+                const finished = next.balances.find(
+                  (b) => b.lot.id === r.finishedLotId,
+                );
+                if (finished) setLocation(finished.location.id);
+                setConfirmation(
+                  r.finishedLotId
+                    ? `Batch recorded: ${number(r.actualYield)} ${r.unit}. Finished stock is shown below.`
+                    : "Made-to-order batch recorded. Ingredients consumed; no finished stock was added.",
+                );
+                setForm("");
+                setTab("Finished Products");
+                setQuery("");
+                setAttention(false);
+                setResumeProduction(false);
+              }}
             />
           )}{" "}
           {["waste", "transfer", "adjustment"].includes(form) && action && (
@@ -1107,9 +1311,25 @@ function Trace({
 
       <p>
         {lot.receivedOn} · {lot.initialQuantity} {lot.unit} · unit cost{" "}
-        {money(lot.unitCost)} · use-by {lot.useBy ?? "not recorded"}
+        {unitPrice(lot.unitCost, lot.unit)} · {lot.valuationStatus ?? "known"} ·
+        use-by {lot.useBy ?? "not recorded"}
       </p>
 
+      {op?.type === "existing-stock" && (
+        <div className="notice">
+          <p>
+            {lot.provenance} · recorded {lot.receivedOn} · prepared{" "}
+            {lot.preparedOn ?? "date unknown"}
+          </p>
+          <p>
+            Source: {String(op.body.source)} · {String(op.body.notes ?? "")}
+          </p>
+          <p>
+            No purchase or ingredient consumption was recorded. Cost:{" "}
+            {lot.valuationStatus}. Ingredient lot traceability is unavailable.
+          </p>
+        </div>
+      )}
       <p>Date evidence: {lot.dateEvidence || "Awaiting review"}</p>
 
       {lot.ingredientSnapshot && (
@@ -1154,7 +1374,8 @@ function Trace({
       {production && (
         <>
           <p>
-            Recipe v{production.version} · actual cost{" "}
+            Recipe v{production.version} ·{" "}
+            {production.valuationStatus ?? "known"} cost{" "}
             {money(production.batchCost)} · operator {production.operator}
           </p>
 
@@ -1215,9 +1436,10 @@ function OperationDetail({
           </h3>
 
           <p>
-            Actual {money(result.batchCost)} / {result.actualYield}{" "}
-            {result.unit} = {money(result.unitCost)} each recipe unit. Published
-            batch estimate {money(result.estimatedRecipeCost)}.
+            {result.valuationStatus ?? "known"} cost {money(result.batchCost)} /{" "}
+            {result.actualYield} {result.unit} = {money(result.unitCost)} each
+            recipe unit. Published batch estimate{" "}
+            {money(result.estimatedRecipeCost)}.
           </p>
 
           {result.allocations.map((a, i) => (
@@ -1302,6 +1524,11 @@ export function ActualCostComparison({
 }: {
   variableCost: number;
 }) {
+  const [expanded, setExpanded] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [resumeProduction, setResumeProduction] = useState(false);
+  const [shoppingPlan, setShoppingPlan] =
+    useState<import("../inventoryTypes").Plan>();
   const [stock, setStock] = useState<InventoryState>(),
     [id, setId] = useState(""),
     [error, setError] = useState("");
@@ -1345,11 +1572,12 @@ export function ActualCostComparison({
 
       {r ? (
         <p>
-          Actual production unit cost <b>{money(r.unitCost)}</b> per {r.unit};
-          published estimate {money(r.estimatedRecipeCost / r.plannedYield)} per
-          planned unit. Current scenario variable cost is {money(variableCost)}{" "}
-          per order. Check basket quantities and which labour/other costs are
-          included before comparing units with orders.
+          Production unit cost ({r.valuationStatus ?? "known"}){" "}
+          <b>{money(r.unitCost)}</b> per {r.unit}; published estimate{" "}
+          {money(r.estimatedRecipeCost / r.plannedYield)} per planned unit.
+          Current scenario variable cost is {money(variableCost)} per order.
+          Check basket quantities and which labour/other costs are included
+          before comparing units with orders.
         </p>
       ) : (
         <p>Select a batch after recording production in Inventory.</p>

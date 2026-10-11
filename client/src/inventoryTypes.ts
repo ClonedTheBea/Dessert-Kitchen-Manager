@@ -14,10 +14,13 @@ export type Lot = {
   dateReviewed: boolean;
   dateEvidence: string;
   initialQuantity: number;
-  unitCost: number;
+  unitCost: number | null;
   allergenSnapshot?: AllergenAssessment;
   ingredientSnapshot?: Ingredient;
   supplierSnapshot?: Supplier;
+  valuationStatus?: string;
+  provenance?: string;
+  preparedOn?: string | null;
 };
 export type Movement = {
   sequence: number;
@@ -27,7 +30,7 @@ export type Movement = {
   type: string;
   quantity: number;
   unit: string;
-  value: number;
+  value: number | null;
   occurredOn: string;
   recordedAt: string;
   actor: string;
@@ -39,8 +42,8 @@ export type Allocation = {
   item: string;
   unit: string;
   quantity: number;
-  unitCost: number;
-  cost: number;
+  unitCost: number | null;
+  cost: number | null;
 };
 export type ProductionResult = {
   batchId: string;
@@ -51,12 +54,13 @@ export type ProductionResult = {
   unit: string;
   mode: string;
   estimatedRecipeCost: number;
-  materialCost: number;
+  materialCost: number | null;
   labourCost: number;
   otherCost: number;
-  batchCost: number;
-  unitCost: number;
+  batchCost: number | null;
+  unitCost: number | null;
   finishedLotId: string | null;
+  valuationStatus?: string;
   allocations: Allocation[];
   operator: string;
   notes: string;
@@ -75,7 +79,7 @@ export type Balance = {
   location: Location;
   quantity: number;
   usable: number;
-  value: number;
+  value: number | null;
   status: string;
   allergenReviewRequired: boolean;
 };
@@ -95,9 +99,11 @@ export type InventoryState = {
   stocktakes: Snapshot[];
   summaries: {
     locationId: string;
-    physicalValue: number;
-    wasteValue: number;
-    wasteByReason: Record<string, number>;
+    physicalValue: number | null;
+    valuationStatus: string;
+    wasteValue: number | null;
+    wasteValuationStatus: string;
+    wasteByReason: Record<string, number | null>;
   }[];
   valuationMethod: string;
 };
@@ -163,9 +169,10 @@ export type ProductionPreview = {
     available: number;
     shortage: number;
   }[];
+  valuationStatus?: string;
   allocations: Allocation[];
   estimatedRecipeCost: number;
-  actualMaterialCost: number;
+  actualMaterialCost: number | null;
   canProduce: boolean;
 };
 export type Action = {
@@ -211,4 +218,20 @@ export type ShoppingRow = {
   supplier: string;
   estimatedCost: number | null;
   illustrative: boolean;
+};
+
+export type ExistingStock = DateReview & {
+  operationId: string;
+  kind: string;
+  itemId: string;
+  quantity: number;
+  unit: string;
+  locationId: string;
+  date: string;
+  source: string;
+  preparedOn: string | null;
+  totalCost: number | null;
+  valuationStatus: string;
+  notes: string;
+  recipeVersion: number | null;
 };

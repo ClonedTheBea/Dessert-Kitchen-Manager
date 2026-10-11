@@ -67,6 +67,7 @@ public sealed partial class Store
         if(input is PurchaseInput purchase)Execute(db,tx,"INSERT INTO record_dependencies VALUES('purchase',$id,'supplier',$supplier,$description)",("$id",id),("$supplier",purchase.SupplierId),("$description","Stock purchase: "+purchase.Reference+" "+id));
         CompleteDraft(db,tx,draft,result!);Audit(db,tx,"inventory:"+type,id);tx.Commit();return result;
     }
+    static decimal? TotalValue(IEnumerable<decimal?> values){var list=values.ToList();return list.Any(v=>v==null)?null:Costing.Money(list.Sum(v=>v!.Value));}
     public object InventoryState()
     {
         var lots=StockLots();var moves=StockMovements();var locations=Locations();var balances=new List<StockBalance>();var operations=StockOperations();
@@ -86,7 +87,7 @@ public sealed partial class Store
             balances.Add(new(lot,location,qty,Usable(lot,AllergenRules.Today())?qty:0,qty*lot.UnitCost,LotStatus(lot),changed));
         }
         var reversed=operations.Where(o=>o.Reverses!=null).Select(o=>o.Reverses!).ToHashSet();
-        var summaries=locations.Select(location=>{var waste=moves.Where(m=>m.LocationId==location.Id&&m.Type.StartsWith("waste:")&&!reversed.Contains(m.OperationId)).ToList();return new{locationId=location.Id,physicalValue=Costing.Money(balances.Where(b=>b.Location.Id==location.Id).Sum(b=>b.Value)),wasteValue=Costing.Money(-waste.Sum(m=>m.Value)),wasteByReason=waste.GroupBy(m=>m.Type).ToDictionary(g=>g.Key,g=>Costing.Money(-g.Sum(m=>m.Value)))};}).ToList();
+        var summaries=locations.Select(location=>{var waste=moves.Where(m=>m.LocationId==location.Id&&m.Type.StartsWith("waste:")&&!reversed.Contains(m.OperationId)).ToList();return new{locationId=location.Id,wasteValuationStatus=waste.Any(m=>lots.First(l=>l.Id==m.LotId).ValuationStatus!="known")?"Includes unknown or estimated costs":"Known costs",valuationStatus=balances.Any(b=>b.Location.Id==location.Id&&b.Lot.ValuationStatus!="known")?"Includes unknown or estimated costs":"Known costs",physicalValue=TotalValue(balances.Where(b=>b.Location.Id==location.Id).Select(b=>b.Value)),wasteValue=TotalValue(waste.Select(m=>-m.Value)),wasteByReason=waste.GroupBy(m=>m.Type).ToDictionary(g=>g.Key,g=>TotalValue(g.Select(m=>-m.Value)))};}).ToList();
         using var db=Open();return new{locations,balances,lots,summaries,movements=moves.OrderByDescending(m=>m.Sequence),operations,stocktakes=InventoryRows<StocktakeSnapshot>(db,null,"inventory_stocktakes"),valuationMethod="FIFO by receipt entry; lot costs held at full decimal precision. Physical stock value includes quarantined/expired stock until disposal. No reservations."};
     }
     public List<StockLot> Receive(PurchaseInput input,string actor="owner",WorkingDraft? draft=null)=>InventoryPost("purchase",input.OperationId,input,actor,ctx=>

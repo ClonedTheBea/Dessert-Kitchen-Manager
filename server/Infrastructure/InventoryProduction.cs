@@ -37,19 +37,21 @@ public sealed partial class Store
             foreach(var lot in ctx.Lots.Where(l=>Matches(l,row)&&Usable(l,date)&&(string.IsNullOrWhiteSpace(actual?.LotId)||l.Id==actual.LotId)).OrderBy(l=>l.RecordedAt).ThenBy(l=>l.Id))
             {
                 var available=ctx.Balance(lot.Id,location)-(!post?allocations.Where(a=>a.LotId==lot.Id).Sum(a=>a.Quantity):0);var quantity=Math.Min(remaining,available);if(quantity<=0)continue;
-                allocations.Add(new(lot.Id,lot.BatchReference,lot.Name,lot.Unit,quantity,lot.UnitCost,quantity*lot.UnitCost));
+                allocations.Add(new(lot.Id,lot.BatchReference,lot.Name,lot.Unit,quantity,lot.UnitCost,quantity*lot.UnitCost,lot.ValuationStatus));
                 if(post)ctx.Move(lot,location,-quantity,"production-consumption",date,notes);remaining-=quantity;if(remaining==0)break;
             }
             if(remaining>0){enough=false;if(post)throw new ValidationException($"Shortage: {remaining} {row.Unit} {row.Name}. Nothing was posted. Receive usable stock or reduce actual usage with an explanation.");}
         }return allocations;
     }
+    static decimal? MaterialCost(List<StockAllocation> allocations)=>allocations.Any(a=>a.Cost==null)?null:allocations.Sum(a=>a.Cost!.Value);
+    static string Valuation(List<StockAllocation> allocations)=>allocations.Any(a=>a.Cost==null)?"unknown":allocations.Any(a=>a.ValuationStatus=="estimated")?"estimated":"known";
     static decimal ExpectedCost(RecipeVersion v,decimal yield,decimal waste)=>(v.Cost.Lines.Sum(l=>l.Cost)*(1+waste/100)+v.Recipe.LabourMinutes/60*v.Recipe.HourlyRate)*yield/v.Recipe.Yield;
     ProductionPreview ProductionPreview(ProductionInput input,InventoryContext ctx)
     {
         StockDate(input.Date);var rows=Requirements(input.RecipeId,input.Version,input.PlannedYield,input.HeldRecipeIds,input.ExtraWastePercent);
-        var requirements=rows.Select(r=>{var available=ctx.Lots.Where(l=>Matches(l,r)&&Usable(l,input.Date)).Sum(l=>ctx.Balance(l.Id,input.LocationId));return new RequirementAvailability(r,available,Math.Max(0,r.Quantity-available));}).ToList();
+        var requirements=rows.Select(r=>{var actual=input.ActualUsage?.FirstOrDefault(a=>a.Key==r.Key);var available=ctx.Lots.Where(l=>Matches(l,r)&&Usable(l,input.Date)&&(string.IsNullOrWhiteSpace(actual?.LotId)||l.Id==actual.LotId)).Sum(l=>ctx.Balance(l.Id,input.LocationId));return new RequirementAvailability(r,available,Math.Max(0,(actual?.Quantity??r.Quantity)-available));}).ToList();
         var allocations=Allocate(ctx,rows,input.LocationId,input.Date,input.ActualUsage,false,input.Notes,out var enough);
-        return new(requirements,allocations,ExpectedCost(RecipeAt(input.RecipeId,input.Version),input.PlannedYield,input.ExtraWastePercent),allocations.Sum(a=>a.Cost),enough);
+        return new(requirements,allocations,ExpectedCost(RecipeAt(input.RecipeId,input.Version),input.PlannedYield,input.ExtraWastePercent),MaterialCost(allocations),enough,Valuation(allocations));
     }
     public ProductionPreview PreviewProduction(ProductionInput input){using var db=Open();using var tx=db.BeginTransaction();return ProductionPreview(input,new(db,tx,input.OperationId,"owner"));}
     public ProductionResult Produce(ProductionInput input,string actor="owner",WorkingDraft? draft=null)=>InventoryPost("production",input.OperationId,input,actor,ctx=>
@@ -58,15 +60,15 @@ public sealed partial class Store
         var root=RecipeAt(input.RecipeId,input.Version);var rows=Requirements(input.RecipeId,input.Version,input.PlannedYield,input.HeldRecipeIds,input.ExtraWastePercent);
         var from=ctx.Location(input.LocationId);var destination=ctx.Location(input.DestinationId);Guard.Require(from.Mode==destination.Mode,"Production cannot move testing ingredients into commercial stock.");
         if(input.ActualYield!=input.PlannedYield || input.ActualUsage?.Any(a=>rows.Any(r=>r.Key==a.Key&&r.Quantity!=a.Quantity))==true)Guard.Text(input.Notes,"Explanation for actual yield / usage differences",5000);
-        var allocations=Allocate(ctx,rows,input.LocationId,input.Date,input.ActualUsage,true,input.Notes,out _);var material=allocations.Sum(a=>a.Cost);var total=material+input.LabourCost+input.OtherCost;
+        var allocations=Allocate(ctx,rows,input.LocationId,input.Date,input.ActualUsage,true,input.Notes,out _);var material=MaterialCost(allocations);var valuation=Valuation(allocations);var total=material+input.LabourCost+input.OtherCost;
         // Snapshot the assessed published composition and the actual lot references. No new dietary approval is inferred.
         var assessment=root.AllergenSnapshot;string? lotId=null;
         if(input.Mode=="made-ahead")
         {
-            lotId=Guid.NewGuid().ToString("N");var lot=new StockLot(lotId,"recipe",root.Recipe.Id,root.Recipe.Name,root.Recipe.YieldUnit,root.Recipe.Revision,input.OperationId,input.BatchReference,input.Date,input.UseBy,input.DateReviewed,input.DateEvidence,input.ActualYield,total/input.ActualYield,Now(),assessment);
+            lotId=Guid.NewGuid().ToString("N");var lot=new StockLot(lotId,"recipe",root.Recipe.Id,root.Recipe.Name,root.Recipe.YieldUnit,root.Recipe.Revision,input.OperationId,input.BatchReference,input.Date,input.UseBy,input.DateReviewed,input.DateEvidence,input.ActualYield,total/input.ActualYield,Now(),assessment,ValuationStatus:valuation);
             ctx.NewLots.Add(lot);ctx.Move(lot,input.DestinationId,input.ActualYield,"production-output",input.Date,input.Notes);
         }
-        return new ProductionResult(input.BatchReference,root.Recipe.Id,root.Recipe.Revision,input.PlannedYield,input.ActualYield,root.Recipe.YieldUnit,input.Mode,ExpectedCost(root,input.PlannedYield,input.ExtraWastePercent),material,input.LabourCost,input.OtherCost,total,total/input.ActualYield,lotId,allocations,assessment,input.Operator,input.Notes);
+        return new ProductionResult(input.BatchReference,root.Recipe.Id,root.Recipe.Revision,input.PlannedYield,input.ActualYield,root.Recipe.YieldUnit,input.Mode,ExpectedCost(root,input.PlannedYield,input.ExtraWastePercent),material,input.LabourCost,input.OtherCost,total,total/input.ActualYield,lotId,allocations,assessment,input.Operator,input.Notes,valuation);
     },draft);
     public StocktakeSnapshot StartStocktake(StocktakeStart input)
     {

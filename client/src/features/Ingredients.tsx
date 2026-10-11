@@ -1,6 +1,6 @@
 import { ArrowRight, CircleHelp, Plus, Search } from "lucide-react";
 import { useState } from "react";
-import { money, number, today } from "../api";
+import { money, number, today, unitPrice } from "../api";
 import type { Ingredient, State } from "../types";
 
 import { Tag, type Notify } from "../components/ui";
@@ -14,11 +14,13 @@ export default function Ingredients({
   initialAction = "",
   refresh,
   notify,
+  purchase,
 }: {
   state: State;
   initialAction?: string;
   refresh: () => Promise<void>;
   notify: Notify;
+  purchase: (id: string) => void;
 }) {
   const [managing, setManaging] = useState<Ingredient>();
   const [showArchived, setShowArchived] = useState(false);
@@ -146,14 +148,9 @@ export default function Ingredients({
                             {p.priceIncludesVat ? "VAT included" : "ex VAT"}
                           </small>
                           <small>
-                            Cost: £{state.unitCosts[p.id].cost.toFixed(6)} /{" "}
-                            {state.unitCosts[p.id].unit}
-                            {state.unitCosts[p.id].unit !== "each" && (
-                              <>
-                                {" "}
-                                · {money(state.unitCosts[p.id].bulkCost)} /{" "}
-                                {state.unitCosts[p.id].bulkUnit}
-                              </>
+                            {unitPrice(
+                              state.unitCosts[p.id].cost,
+                              state.unitCosts[p.id].unit,
                             )}
                           </small>
                         </>
@@ -171,7 +168,14 @@ export default function Ingredients({
                         className="text-button"
                         onClick={() => setPricing(i)}
                       >
-                        Update price <ArrowRight size={15} />
+                        {p ? "Update Price" : "Set Supplier Price"}{" "}
+                        <ArrowRight size={15} />
+                      </button>
+                      <button
+                        className="text-button"
+                        onClick={() => purchase(i.id)}
+                      >
+                        Record Purchase
                       </button>
                       <br />
                       <button
@@ -230,12 +234,13 @@ export default function Ingredients({
       )}
       {pricing && (
         <PriceEditor
+          purchase={() => purchase(pricing.id)}
           ingredient={pricing}
           state={state}
           close={() => setPricing(undefined)}
           saved={async () => {
             await refresh();
-            notify("Supplier quote added. Saved recipe costs are unchanged.");
+            notify("Supplier price updated. Saved recipe costs are unchanged.");
           }}
         />
       )}

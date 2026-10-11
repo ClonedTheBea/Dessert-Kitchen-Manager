@@ -3,11 +3,11 @@ public record LotDateReview(string OperationId,string LotId,DateOnly? UseBy,bool
 public record StockLocation(string Id,string Name,string Mode="testing");
 public record StockLot(string Id,string Kind,string ItemId,string Name,string Unit,int? RecipeVersion,
  string OperationId,string BatchReference,DateOnly ReceivedOn,DateOnly? UseBy,bool DateReviewed,string DateEvidence,
- decimal InitialQuantity,decimal UnitCost,string RecordedAt,AllergenAssessment? AllergenSnapshot=null,Ingredient? IngredientSnapshot=null,Supplier? SupplierSnapshot=null);
+ decimal InitialQuantity,decimal? UnitCost,string RecordedAt,AllergenAssessment? AllergenSnapshot=null,Ingredient? IngredientSnapshot=null,Supplier? SupplierSnapshot=null,string ValuationStatus="known",string Provenance="",DateOnly? PreparedOn=null);
 public record StockMovement(long Sequence,string OperationId,string LotId,string LocationId,string Type,
- decimal Quantity,string Unit,decimal Value,DateOnly OccurredOn,string RecordedAt,string Actor,string Notes);
+ decimal Quantity,string Unit,decimal? Value,DateOnly OccurredOn,string RecordedAt,string Actor,string Notes);
 public record StockOperation(string Id,string Type,string RecordedAt,string Actor,System.Text.Json.JsonElement Body,System.Text.Json.JsonElement Result,string? Reverses=null);
-public record StockBalance(StockLot Lot,StockLocation Location,decimal Quantity,decimal Usable,decimal Value,string Status,bool AllergenReviewRequired);
+public record StockBalance(StockLot Lot,StockLocation Location,decimal Quantity,decimal Usable,decimal? Value,string Status,bool AllergenReviewRequired);
 public record PurchaseLine(string IngredientId,decimal Packs,decimal PackSize,string Unit,decimal PackPrice,
  decimal VatRate=0,bool PriceIncludesVat=true,bool RecoverVat=false,string PackLabel="pack",decimal PacksPerCase=1,
  string BatchReference="",DateOnly? UseBy=null,bool DateReviewed=false,string DateEvidence="");
@@ -21,11 +21,11 @@ public record ProductionInput(string OperationId,string RecipeId,int Version,dec
 public record ActualUsage(string Key,decimal Quantity,string? LotId=null);
 public record StockRequirement(string Key,string Kind,string ItemId,int? Version,string Name,string Unit,decimal Quantity);
 public record RequirementAvailability(StockRequirement Requirement,decimal Available,decimal Shortage);
-public record StockAllocation(string LotId,string BatchReference,string Item,string Unit,decimal Quantity,decimal UnitCost,decimal Cost);
-public record ProductionPreview(List<RequirementAvailability> Requirements,List<StockAllocation> Allocations,decimal EstimatedRecipeCost,decimal ActualMaterialCost,bool CanProduce);
+public record StockAllocation(string LotId,string BatchReference,string Item,string Unit,decimal Quantity,decimal? UnitCost,decimal? Cost,string ValuationStatus="known");
+public record ProductionPreview(List<RequirementAvailability> Requirements,List<StockAllocation> Allocations,decimal EstimatedRecipeCost,decimal? ActualMaterialCost,bool CanProduce,string ValuationStatus="known");
 public record ProductionResult(string BatchId,string RecipeId,int Version,decimal PlannedYield,decimal ActualYield,string Unit,string Mode,
- decimal EstimatedRecipeCost,decimal MaterialCost,decimal LabourCost,decimal OtherCost,decimal BatchCost,decimal UnitCost,
- string? FinishedLotId,List<StockAllocation> Allocations,AllergenAssessment? AllergenSnapshot,string Operator,string Notes);
+ decimal EstimatedRecipeCost,decimal? MaterialCost,decimal LabourCost,decimal OtherCost,decimal? BatchCost,decimal? UnitCost,
+ string? FinishedLotId,List<StockAllocation> Allocations,AllergenAssessment? AllergenSnapshot,string Operator,string Notes,string ValuationStatus="known");
 public record CountSnapshotLine(string LotId,decimal Quantity,long LastSequence);
 public record StocktakeSnapshot(string Id,string LocationId,string Category,string RecordedAt,List<CountSnapshotLine> Lines);
 public record StocktakeStart(string LocationId,string Category="");
@@ -35,3 +35,7 @@ public record PlannedRecipe(string RecipeId,int Version,decimal Quantity,List<st
 public record ShoppingInput(string LocationId,List<PlannedRecipe> Plans,Dictionary<string,decimal>? PackOverrides=null,string Notes="");
 public record ShoppingRow(string Key,string ItemId,string Name,string Unit,decimal Required,decimal Available,decimal Shortfall,
  decimal? PackSize,decimal? SuggestedPacks,decimal? SelectedPacks,decimal? PurchaseQuantity,string Supplier,decimal? EstimatedCost,bool Illustrative);
+
+public record ExistingStockInput(string OperationId,string Kind,string ItemId,decimal Quantity,string Unit,string LocationId,DateOnly Date,
+ string Source,DateOnly? PreparedOn=null,DateOnly? UseBy=null,bool DateReviewed=false,string DateEvidence="",decimal? TotalCost=null,
+ string ValuationStatus="unknown",string Notes="",int? RecipeVersion=null);

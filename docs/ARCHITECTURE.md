@@ -48,3 +48,8 @@ See [Sprint 2](SPRINT-2.md) for schema, valuation rules, migration evidence and 
 `client/src/theme.css` owns the Apiary-derived brand primitives and semantic roles. Layout styles and `redesign.css` consume variables; application CSS contains no colour literals outside the token file. Home, Recipes (with ingredients and suppliers), Stock, and Money are the four primary sections. Recipe reading/editing uses dedicated page content; working drafts and immutable publication remain distinct.
 
 The only backend additions are an authenticated, read-only `/prices/preview` endpoint using the existing decimal calculation, and the `ingredient-setup` draft publication transaction. It inserts an optional supplier, ingredient, initial quote, audit entries and draft receipt atomically. Existing CAS, dependency triggers and publication idempotency apply. There is no database migration and no change to FIFO, recipes, financial modelling or inventory posting. See [Sprint 2.1](SPRINT-2.1.md).
+
+
+## Sprint 2.1.1 existing stock and valuation
+
+`ExistingStockInput` posts through the same immutable inventory transaction and draft-confirmation machinery as purchases/production. Additive JSON fields retain provenance, prepared date and valuation status; no SQL migration is needed. `StockLot.UnitCost`, movement/balance values and production actual costs are nullable. Any unknown-cost allocation makes the actual production total unknown; estimated inputs retain estimated status. Old serialized lots default to known status. API consumers must preserve nullable actual costs rather than coalescing them to zero. Decimal arithmetic is unchanged. Historical receipts do not synthesize ingredient consumption or allergen evidence. See [the Sprint 2.1.1 handover](SPRINT-2.1.1.md).

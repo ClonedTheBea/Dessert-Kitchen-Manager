@@ -20,12 +20,20 @@ export async function api<T>(path: string, data?: unknown): Promise<T> {
     ? (undefined as T)
     : response.json();
 }
-export const money = (n: number) =>
-  new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(
-    n,
-  );
+export const money = (n: number | null | undefined) =>
+  n == null
+    ? "Unknown"
+    : new Intl.NumberFormat("en-GB", {
+        style: "currency",
+        currency: "GBP",
+      }).format(n);
 export const number = (n: number) =>
-  new Intl.NumberFormat("en-GB", { maximumFractionDigits: 2 }).format(n);
+  new Intl.NumberFormat(
+    "en-GB",
+    n !== 0 && Math.abs(n) < 0.01
+      ? { maximumSignificantDigits: 3 }
+      : { maximumFractionDigits: 2 },
+  ).format(n);
 export const date = (s: string) =>
   new Date(s).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -40,3 +48,11 @@ export const today = () =>
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+
+// Display conversion only: stored prices and all authoritative costing remain unrounded.
+export const unitPrice = (cost: number | null | undefined, unit: string) => {
+  if (cost == null) return "Cost unknown";
+  if (unit === "g" || unit === "ml")
+    return `${money(cost * 1000)}/${unit === "g" ? "kg" : "litre"} · ${number(cost * 100 * 100)}p/100${unit}`;
+  return `${money(cost)}/${unit}`;
+};
