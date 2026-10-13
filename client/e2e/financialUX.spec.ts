@@ -245,7 +245,7 @@ for (const width of [1440, 390])
     ).toBeVisible();
     await navigate(page, "Money");
     await expect(page.locator(".financial-cards")).toContainText(
-      "Setup needed",
+      "Check direct costs",
     );
     await expect(page.locator(".financial-cards")).not.toContainText("£0.00");
     await page.getByLabel("Search desserts…").fill(recipe.name);
@@ -270,7 +270,7 @@ for (const width of [1440, 390])
     ).toBeVisible();
     await navigate(page, "Money");
     await expect(page.locator(".financial-cards")).not.toContainText(
-      "Setup needed",
+      "Check direct costs",
     );
     expect(
       await page.evaluate(

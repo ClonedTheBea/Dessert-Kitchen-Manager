@@ -158,7 +158,7 @@ export const productPlan = (r: Recipe, b: Business): ProductPlan =>
     })),
     outputVatPercent: 0,
     vatTreatment: "unconfigured",
-    inputRecoveryPercent: 100,
+    inputRecoveryPercent: b.vatRegistered ? b.inputRecoveryPercent : 0,
     equipment: [],
     waterLitresPerBatch: 0,
     labourBasis: "recipe",

@@ -35,6 +35,7 @@ export async function navigate(page: Page, name: string) {
     if (!(await b.isVisible()))
       await page.getByRole("button", { name: "Toggle navigation" }).click();
     await b.click();
+    await expect(page.locator(".breadcrumb strong")).toHaveText("Settings");
     return;
   }
   const primary =
@@ -53,6 +54,7 @@ export async function navigate(page: Page, name: string) {
   if (!(await button.isVisible()))
     await page.getByRole("button", { name: "Toggle navigation" }).click();
   await button.click();
+  await expect(page.locator(".breadcrumb strong")).toHaveText(primary);
   if (name === "Ingredients")
     await page
       .getByRole("navigation", { name: "Recipe workspace" })

@@ -32,7 +32,7 @@ public sealed partial class Store
         // Freeze the forecast into a new planner scenario; existing scenarios are never overwritten.
         Costing.Model(scenario); Save("scenario", scenario.Id, 0, scenario); return scenario;
     }
-    public ProductPlan DefaultProduct(Recipe r, BusinessSettings s) => new(r.Id, s.Channels.Select(c => new ProductChannel(c.Id, r.SellingPrice)).ToList());
+    public ProductPlan DefaultProduct(Recipe r, BusinessSettings s) => new(r.Id, s.Channels.Select(c => new ProductChannel(c.Id, r.SellingPrice)).ToList(), InputRecoveryPercent: s.VatRegistered ? s.InputRecoveryPercent : 0);
     public ProfitabilityReport Profitability(ProfitabilityRequest input)
     {
         Guard.Require(input.AsOf != default, "Costing date is required."); var s = input.Settings ?? BusinessAt(input.AsOf); BusinessRules.Validate(s);

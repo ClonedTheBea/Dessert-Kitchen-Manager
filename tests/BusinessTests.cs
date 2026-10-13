@@ -19,7 +19,7 @@ public partial class BusinessTests
         var r=DomainTests.Recipe() with{Id="cake",Name="Test cake",Revision=1,Yield=1,SellingPrice=6,Lines=[new("ingredient","flour",100,"g"),new("ingredient","pot",1,"each")]};
         s.Save("recipe",r.Id,0,r,new(r,s.Calculate(r),Store.Now()));return s;
     }
-    static BusinessSettings Settings(Store s)=>s.DefaultBusiness() with{Products=[new("cake",[new("direct",6,100),new("uber",6,100),new("deliveroo",6,100)],VatTreatment:"zero")],Channels=[new("direct","Direct"),new("uber","Uber Eats",30,20),new("deliveroo","Deliveroo",25,20)]};
+    static BusinessSettings Settings(Store s)=>s.DefaultBusiness() with{Products=[new("cake",[new("direct",6,100),new("uber",6,100),new("deliveroo",6,100)],VatTreatment:"zero",InputRecoveryPercent:100)],Channels=[new("direct","Direct"),new("uber","Uber Eats",30,20),new("deliveroo","Deliveroo",25,20)]};
     static ProductEconomics Row(ProfitabilityReport r,string channel="direct")=>r.Products.Single(p=>p.ChannelId==channel);
     static void Close(decimal expected,decimal actual)=>Assert.InRange(actual,expected-.000000000001m,expected+.000000000001m);
     [Theory][InlineData(false,0,0,1.2,2.16,2.54)][InlineData(true,100,20,1,1.8,2.1)][InlineData(true,50,20,1.1,1.98,1.82)]

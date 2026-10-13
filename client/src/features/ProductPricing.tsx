@@ -1,3 +1,4 @@
+import { PricePanel } from "./MoneyWorkspace";
 import { useEffect, useState } from "react";
 import { api, today } from "../api";
 import { flushEdits } from "../autoSave";
@@ -8,14 +9,19 @@ import { ConfigureProduct, Simulator } from "./ProductProfitability";
 export default function ProductPricing({
   state,
   initialId = "",
+  initialMode = "test",
+  openSettings,
 }: {
   state: State;
   initialId?: string;
+  initialMode?: string;
+  openSettings: (action?: string) => void;
 }) {
   const [ctx, C] = useState<ProfitContext>();
   const [current, B] = useState<Business>();
   const [id, I] = useState(initialId);
-  const [mode, M] = useState("edit");
+  const [mode, M] = useState(initialMode);
+  const [advanced, ShowAdvanced] = useState(initialMode === "edit");
   const [seq, Q] = useState(0);
   const [loadedSeq, L] = useState(-1);
   const [error, E] = useState("");
@@ -41,16 +47,17 @@ export default function ProductPricing({
   const recipe = ctx?.recipes.find((r) => r.id === id);
   const done = () => {
     I("");
-    M("edit");
+    M("test");
     Q((n) => n + 1);
   };
   return (
     <>
       <section className="panel">
-        <h2>Product pricing & saved price scenarios</h2>
+        <h2>Cost a dessert</h2>
         <p>
-          Prices apply per product. Ingredient costs come directly from
-          published recipes and supplier prices.
+          Choose a saved recipe, try a selling price and compare channels.
+          Ingredient costs are already filled in from your recipes and supplier
+          prices.
         </p>
         <label>
           Choose a product
@@ -73,19 +80,28 @@ export default function ProductPricing({
           </select>
         </label>
         {recipe && (
-          <button
-            className="secondary"
-            onClick={async () => {
-              if (await flushEdits()) {
-                M(mode === "edit" ? "simulate" : "edit");
-                Q((n) => n + 1);
-              }
-            }}
-          >
-            {mode === "edit"
-              ? "Advanced pricing scenarios"
-              : "Edit saved product pricing"}
-          </button>
+          <div className="actions pricing-actions">
+            {[
+              ["test", "Try a price"],
+              ["edit", "Edit saved product pricing"],
+              ["simulate", "Advanced pricing scenarios"],
+            ]
+              .filter(([m]) => m !== mode)
+              .map(([m, label]) => (
+                <button
+                  key={m}
+                  className="secondary"
+                  onClick={async () => {
+                    if (await flushEdits()) {
+                      M(m);
+                      Q((n) => n + 1);
+                    }
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+          </div>
         )}
         <ErrorBox error={error} />
       </section>
@@ -93,12 +109,32 @@ export default function ProductPricing({
         ctx &&
         current &&
         loadedSeq === seq &&
-        (mode === "edit" ? (
+        (mode === "test" ? (
+          <section className="panel">
+            <PricePanel
+              key={`${id}-${seq}`}
+              id={id}
+              data={{ settings: ctx.settings }}
+              state={state}
+              close={done}
+              inline
+              quick
+              settings={(action) => {
+                if (action?.startsWith("pricing:")) {
+                  ShowAdvanced(true);
+                  M("edit");
+                  Q((n) => n + 1);
+                } else openSettings(action);
+              }}
+            />
+          </section>
+        ) : mode === "edit" ? (
           <ConfigureProduct
             key={`${id}-${seq}`}
             recipe={recipe}
             initial={current}
             done={done}
+            advancedOpen={advanced}
           />
         ) : (
           <Simulator

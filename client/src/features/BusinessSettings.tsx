@@ -2,7 +2,7 @@ import SavedForecasts from "./SavedForecasts";
 import type { State } from "../types";
 import ForecastSettings from "./ForecastSettings";
 import { useEffect, useState, useRef } from "react";
-import { api, money, number } from "../api";
+import { api, money, number, today } from "../api";
 import { SaveStatus, useAutoSave } from "../autoSave";
 import { ErrorBox, Field, Num } from "../components/ui";
 import type { Business } from "../businessTypes";
@@ -17,7 +17,16 @@ export function N({
   onChange: (n: number) => void;
 }) {
   return (
-    <Field label={label}>
+    <Field
+      label={label}
+      hint={
+        value < 0
+          ? "Enter zero or a positive amount."
+          : label.includes("(%)") && value > 100
+            ? "Enter a percentage from 0 to 100."
+            : undefined
+      }
+    >
       <Num value={value} onChange={onChange} />
     </Field>
   );
@@ -99,20 +108,41 @@ export function BusinessFields({
     set({ ...b, [k]: v });
   return (
     <div className="business-fields">
-      {!simulation && (
-        <div className="form-grid">
-          <T
-            label="Business configuration name"
-            value={b.name}
-            onChange={(v) => field("name", v)}
-          />
-          <T
-            label="Rates effective from"
-            type="date"
-            value={b.effectiveFrom}
-            onChange={(v) => field("effectiveFrom", v)}
-          />
+      {!b.vatRegistered && b.inputRecoveryPercent !== 0 && (
+        <div role="alert" className="error-box">
+          <strong>
+            Check business VAT recovery: {b.inputRecoveryPercent}% cannot be
+            reclaimed while VAT registration is off.
+          </strong>
+          <p>
+            Your other edits are still in this form. Choose no recovery below,
+            or correct your registration in Advanced VAT settings.
+          </p>
+          <button
+            className="secondary"
+            onClick={() => field("inputRecoveryPercent", 0)}
+          >
+            Use no VAT recovery (0%)
+          </button>
         </div>
+      )}
+      {!simulation && (
+        <details>
+          <summary>Advanced: configuration history & scheduling</summary>
+          <div className="form-grid">
+            <T
+              label="Business configuration name"
+              value={b.name}
+              onChange={(v) => field("name", v)}
+            />
+            <T
+              label="Rates effective from"
+              type="date"
+              value={b.effectiveFrom}
+              onChange={(v) => field("effectiveFrom", v)}
+            />
+          </div>
+        </details>
       )}
       <details>
         <summary>Premises and regular costs</summary>
@@ -526,7 +556,11 @@ export function BusinessFields({
           );
         })}
       </details>
-      <details>
+      <details
+        open={
+          !b.vatRegistered && b.inputRecoveryPercent !== 0 ? true : undefined
+        }
+      >
         <summary>Advanced: VAT & overhead allocation</summary>
         <C
           label="Business is VAT registered"
@@ -540,11 +574,20 @@ export function BusinessFields({
           }
         />
         <div className="form-grid">
-          <N
-            label="Business input VAT recovery (%)"
-            value={b.inputRecoveryPercent}
-            onChange={(v) => field("inputRecoveryPercent", v)}
-          />
+          <fieldset disabled={!b.vatRegistered}>
+            <N
+              label="Business input VAT recovery (%)"
+              value={b.inputRecoveryPercent}
+              onChange={(v) => field("inputRecoveryPercent", v)}
+            />
+          </fieldset>
+          {!b.vatRegistered && (
+            <p>
+              Not VAT registered: purchase VAT stays in your costs. Recovery
+              must be 0%. Registering later does not automatically choose a
+              recovery rate.
+            </p>
+          )}
           <S
             label="Fixed-cost allocation method"
             value={b.allocationMethod}
@@ -602,11 +645,18 @@ export function BusinessEditor({
     <section ref={root} className="panel">
       <h2>Business settings</h2>
       <p>
-        These settings feed Financial Overview and Price Breakdown. Ordinary
-        edits autosave; each revision is retained. A future effective date
-        schedules new assumptions; older effective periods remain available.
+        Start with a regular bill, such as rent or insurance. Your saved costs
+        appear in Money straight away. Add opening hours and sales estimates
+        when you want to forecast earnings.
       </p>
       <SaveStatus save={save} />
+      {b.effectiveFrom > today() && (
+        <p role="status">
+          These changes are scheduled for {b.effectiveFrom}. Money uses your
+          current settings until that date. Open Advanced: configuration history
+          & scheduling to change the date.
+        </p>
+      )}
       <BusinessFields value={b} change={set} />
       <ForecastSettings b={b} set={set} state={state} />
       <SavedForecasts state={state} />

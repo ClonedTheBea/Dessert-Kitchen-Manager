@@ -3,22 +3,28 @@ namespace DessertKitchen.Infrastructure;
 public record PriceSegment(string Key,string Name,decimal Amount,decimal Percent,decimal UnroundedAmount);
 public record PriceBreakdown(ProductEconomics Row,List<string> Missing,List<PriceSegment> Segments,string? ChartMessage);
 public record BreakdownRequest(ProfitabilityRequest Input,string RecipeId,string ChannelId);
-public record FinancialOverview(BusinessSettings Settings,FinancialModel? Model,List<string> Missing,Dictionary<string,decimal> RunningCosts,ProfitabilityReport Products,Scenario? Assumptions);
+public record SetupRequirement(string Message,string Action);
+public record FinancialOverview(BusinessSettings Settings,FinancialModel? Model,List<string> Missing,Dictionary<string,decimal> RunningCosts,ProfitabilityReport Products,Scenario? Assumptions,decimal? KnownMonthlyCosts,decimal? KnownContribution,List<SetupRequirement> Requirements);
 public sealed partial class Store
 {
     public static bool CommissionKnown(SalesChannel c)=>c.CommissionConfigured??c.CommissionPercent!=0;
     public FinancialOverview Overview(DateOnly day)
     {
         var b=BusinessAt(day);var missing=new List<string>();var costs=new Dictionary<string,decimal>();var f=b.Forecast;
-        if(f==null||!b.ForecastReviewed)missing.Add("Check your opening hours, expected orders and average direct costs in Business Settings.");
+        if(f==null)missing.Add("Enter an average order value and direct cost per order in Forecast assumptions.");
+        else if(!b.ForecastReviewed)missing.Add("Review your direct costs and sales estimates, then confirm the forecast in Forecast assumptions.");
         var shares=b.ForecastShares??[];
         if(shares.Values.Sum()!=100)missing.Add("Choose your selling-channel mix; the shares need to total 100%.");
         foreach(var c in b.Channels.Where(c=>shares.GetValueOrDefault(c.Id)>0&&!CommissionKnown(c)))missing.Add($"Enter {c.Name} commission, or explicitly enter 0 if there is none.");
         var recovery=b.VatRegistered?b.InputRecoveryPercent:0;
         foreach(var e in b.Expenses.Where(e=>e.Attribution=="overhead"))costs[e.Name]=costs.GetValueOrDefault(e.Name)+BusinessRules.Monthly(e,recovery);
         foreach(var t in b.Utilities)if(t.StandingPenceDaily!=0)costs[$"{t.Kind} standing charge"]=costs.GetValueOrDefault($"{t.Kind} standing charge")+BusinessRules.Net(t.StandingPenceDaily/100,t.VatPercent,t.IncludesVat,recovery)*365/12;
+        var committedCosts=new Dictionary<string,decimal>(costs);
         var baseFixed=costs.Values.Sum();
-        FinancialModel? model=null;Scenario? composed=null;
+        var payrollBudget=b.StaffHoursWeekly*52/12*b.StaffHourlyRate*(1+b.EmployerPercent/100);
+        decimal? knownCosts=b.Expenses.Any(e=>e.Attribution=="overhead")||baseFixed!=0||payrollBudget!=0||b.ForecastReviewed ? baseFixed+payrollBudget : null;
+        if(f==null&&payrollBudget!=0)costs["Staff budget"]=payrollBudget;
+        FinancialModel? model=null;Scenario? composed=null;decimal? knownContribution=null;
         if(f!=null)
         {
             var orders=f.OpenDays.Count*f.TradingWeeks/12*f.OrdersPerEvening;
@@ -35,10 +41,11 @@ public sealed partial class Store
                 decimal? Required(decimal target)=>contribution<=0?null:decimal.Ceiling(Math.Max((baseFixed+target)/contribution,(baseFixed+payroll+target)/(contribution+b.DirectLabourPerOrder)));
                 var owner=b.OwnerHoursWeekly*52/12*b.OwnerHourlyRate;
                 result=result with{RequiredOrders=new(){["Business expenses"]=Required(0),["Expenses + owner"]=Required(owner),["£500 profit after owner"]=Required(owner+500),["£1,000 profit after owner"]=Required(owner+1000),["£2,000 profit after owner"]=Required(owner+2000),["Custom profit after owner"]=Required(owner+f.TargetProfit),["Owner + capital recovery"]=Required(owner+f.InitialInvestment/f.RecoveryMonths)}};
-                if(missing.Count==0)model=result;
+                if(missing.Count==0){model=result;knownContribution=result.ContributionPerOrder;}
             }catch(ValidationException e){missing.Add(e.Message);}
         }
-        return new(b,model,missing,costs,Profitability(new(day)),composed);
+        if(model==null){costs=committedCosts;if(payrollBudget!=0)costs["Staff budget"]=costs.GetValueOrDefault("Staff budget")+payrollBudget;}
+        return new(b,model,missing,costs,Profitability(new(day)),composed,model?.FixedCosts??knownCosts,knownContribution,missing.Select(m=>new SetupRequirement(m,m.Contains("commission")?"business:platforms":"business:forecast")).ToList());
     }
     public PriceBreakdown Breakdown(BreakdownRequest request)
     {
@@ -46,7 +53,7 @@ public sealed partial class Store
         var row=report.Products.FirstOrDefault(p=>p.RecipeId==request.RecipeId&&p.ChannelId==request.ChannelId)??throw new ValidationException("This product has no complete ingredient costing on the selected date. Check its recipe and supplier prices.");
         var recipe=PublishedAt(row.RecipeId,request.Input.AsOf).Recipe;var p=b.Products.FirstOrDefault(p=>p.RecipeId==row.RecipeId)??DefaultProduct(recipe,b);var c=b.Channels.Single(c=>c.Id==row.ChannelId);var missing=new List<string>();
         if(!CommissionKnown(c))missing.Add($"{c.Name} commission is not configured. Enter a rate or explicitly confirm zero in Business Settings.");
-        if(p.VatTreatment=="unconfigured")missing.Add("Product VAT treatment has not been reviewed in Product pricing.");
+        if(b.VatRegistered&&p.VatTreatment=="unconfigured")missing.Add("Product VAT treatment has not been reviewed in Product pricing.");
         var uses=p.Equipment??[];
         if(p.EnergyConfirmed==false||(p.EnergyConfirmed==null&&!uses.Any(u=>u.Minutes>0)&&p.WaterLitresPerBatch==0))missing.Add("Production energy is unknown. Review equipment usage or confirm that no energy cost applies in Product pricing.");
         foreach(var use in uses.Where(u=>u.Minutes>0))

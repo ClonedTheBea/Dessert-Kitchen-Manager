@@ -1,3 +1,5 @@
+import GettingStarted from "./GettingStarted";
+import type { Overview } from "./MoneyWorkspace";
 import {
   ChefHat,
   Plus,
@@ -17,6 +19,7 @@ export default function Home({
   state: State;
   navigate: (p: Page, action?: string) => void;
 }) {
+  const [overview, O] = useState<Overview>();
   const [stock, setStock] = useState<InventoryState>(),
     [model, setModel] = useState<Model>(),
     [error, setError] = useState("");
@@ -24,14 +27,13 @@ export default function Home({
     let active = true;
     Promise.all([
       api<InventoryState>("/inventory/state"),
-      state.scenarios[0]
-        ? api<Model>("/scenarios/preview", state.scenarios[0])
-        : Promise.resolve(undefined),
+      api<Overview>("/financial/overview"),
     ])
       .then(([s, m]) => {
         if (active) {
           setStock(s);
-          setModel(m);
+          O(m);
+          setModel(m.model ?? undefined);
         }
       })
       .catch((e) => {
@@ -116,6 +118,12 @@ export default function Home({
         </div>
       </header>
       <ErrorBox error={error} />
+      <GettingStarted
+        state={state}
+        overview={overview}
+        hasStock={!!stock?.balances.length}
+        navigate={navigate}
+      />
       <div className="task-grid">
         {tasks.map(({ label, note, page, action, icon: Icon }) => (
           <button
@@ -216,8 +224,8 @@ export default function Home({
                 </div>
               </div>
               <p>
-                Scenario: {state.scenarios[0]?.name}. Before owner compensation
-                and capital recovery.
+                Current business settings. Before owner compensation and capital
+                recovery.
               </p>
               <button
                 className="secondary"
@@ -227,7 +235,19 @@ export default function Home({
               </button>
             </>
           ) : (
-            <p>Add a planning scenario in Money.</p>
+            <>
+              <p>
+                {overview?.knownMonthlyCosts != null
+                  ? `${money(overview.knownMonthlyCosts)} in known monthly commitments. Add sales assumptions when you want to estimate earnings.`
+                  : "Start with a regular bill to see your known monthly commitments."}
+              </p>
+              <button
+                className="secondary"
+                onClick={() => navigate("Settings", "business:expenses")}
+              >
+                Enter regular bills
+              </button>
+            </>
           )}
         </section>
         <section className="panel">

@@ -12,6 +12,7 @@ export default function SettingsPage({
   state: State;
   initialAction?: string;
 }) {
+  const [action, A] = useState(initialAction);
   const [tab, T] = useState(
     initialAction.startsWith("pricing:")
       ? "Product pricing"
@@ -43,16 +44,26 @@ export default function SettingsPage({
         <BusinessSettings
           state={state}
           initialGroup={
-            initialAction === "business:platforms"
-              ? "Selling platforms"
-              : initialAction === "business:utilities"
-                ? "Utilities & equipment"
-                : ""
+            {
+              "business:platforms": "Selling platforms",
+              "business:utilities": "Utilities & equipment",
+              "business:expenses": "Premises and regular costs",
+              "business:forecast": "Forecast assumptions",
+              "business:opening": "Opening hours",
+            }[action] ?? ""
           }
         />
       )}
       {tab === "Product pricing" && (
-        <ProductPricing state={state} initialId={initialAction.split(":")[1]} />
+        <ProductPricing
+          state={state}
+          initialId={initialAction.split(":")[1]}
+          initialMode={initialAction.endsWith(":advanced") ? "edit" : "test"}
+          openSettings={(action) => {
+            T("Business Settings");
+            A(action ?? "");
+          }}
+        />
       )}
       {tab === "Backups" && (
         <>

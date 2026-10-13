@@ -1306,3 +1306,112 @@ main:focus {
 .price-breakdown-panel > label select {
   width: 100%;
 }
+.getting-started {
+  margin-bottom: 24px;
+}
+.getting-started .section-heading {
+  align-items: flex-start;
+}
+.start-choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.start-choices button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  padding: 20px;
+  gap: 10px;
+}
+.start-choices strong {
+  font-size: 19px;
+}
+.start-choices span {
+  font-weight: 400;
+  line-height: 1.6;
+}
+.setup-checklist {
+  list-style: none;
+  padding: 0;
+}
+.setup-checklist li {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.setup-checklist li > div {
+  flex: 1;
+}
+.setup-checklist p {
+  margin: 6px 0;
+}
+.onboarding-return {
+  margin-bottom: 20px;
+}
+.price-breakdown-inline {
+  max-width: 760px;
+}
+.price-breakdown-inline > label {
+  display: grid;
+  gap: 8px;
+  margin: 20px 0;
+}
+.price-breakdown-inline .price-heading {
+  margin-bottom: 16px;
+}
+.known-cost-summary {
+  padding: 16px;
+  background: var(--info-soft);
+  border-radius: var(--radius-card);
+  margin: 20px 0;
+}
+.price-breakdown-inline .temporary-price {
+  margin-bottom: 16px;
+}
+.business-fields > fieldset[disabled] {
+  opacity: 0.8;
+}
+.setup-list li {
+  margin-bottom: 12px;
+}
+@media (max-width: 650px) {
+  .start-choices {
+    grid-template-columns: 1fr;
+  }
+  .setup-checklist li {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .getting-started .section-heading {
+    flex-wrap: wrap;
+  }
+  .price-breakdown-inline > label select {
+    width: 100%;
+  }
+}
+
+.start-choices button {
+  white-space: normal;
+  min-width: 0;
+  max-width: 100%;
+}
+.start-choices {
+  min-width: 0;
+}
+
+.pricing-actions {
+  flex-wrap: wrap;
+}
+.pricing-actions button {
+  white-space: normal;
+  max-width: 100%;
+}
+.price-breakdown-inline .temporary-price input {
+  width: 100%;
+}

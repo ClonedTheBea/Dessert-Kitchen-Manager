@@ -151,6 +151,9 @@ test("mutable records validate, autosave, preserve conflicts and flush page navi
   await login(page);
   await navigate(page, "Settings");
   await page
+    .getByText("Advanced: configuration history & scheduling", { exact: true })
+    .click();
+  await page
     .getByLabel("Business configuration name")
     .fill("Autosave navigation test");
   await navigate(page, "Ingredients");

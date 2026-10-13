@@ -36,7 +36,7 @@ builder.Services.AddRateLimiter(o =>
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 1024 * 1024);
 var app = builder.Build();
 var store = app.Services.GetRequiredService<Store>();
-Seed.Run(store);
+if (builder.Configuration.GetValue("SeedExampleData", true)) Seed.Run(store);
 var writeLock = new object();
 app.Use(async (context, next) =>
 {

@@ -180,14 +180,31 @@ for (const width of [1440, 390])
       .getByRole("button", { name: "Product pricing", exact: true })
       .click();
     await page.getByLabel("Choose a product").selectOption(recipe.id);
+    await page
+      .getByRole("button", { name: "Edit saved product pricing", exact: true })
+      .first()
+      .click();
     const direct = page.getByRole("group", { name: "Direct", exact: true });
+    await direct
+      .getByText("Forecast sales volume (optional)", { exact: true })
+      .click();
     await direct.getByLabel("Forecast units / month").fill("100");
+    await page.getByLabel("Price to save for channel").selectOption("uber");
     const uber = page.getByRole("group", { name: "Uber Eats", exact: true });
+    await uber
+      .getByText("Forecast sales volume (optional)", { exact: true })
+      .click();
     await uber.getByLabel("Forecast units / month").fill("100");
+    await page
+      .getByLabel("Price to save for channel")
+      .selectOption("deliveroo");
     const deliveroo = page.getByRole("group", {
       name: "Deliveroo",
       exact: true,
     });
+    await deliveroo
+      .getByText("Forecast sales volume (optional)", { exact: true })
+      .click();
     await deliveroo.getByLabel("Forecast units / month").fill("100");
     await page
       .getByText("Product VAT, equipment & direct labour", { exact: true })
@@ -199,11 +216,29 @@ for (const width of [1440, 390])
       .click();
     // Reopening must initialise from the latest saved business revision.
     await page.getByLabel("Choose a product").selectOption(recipe.id);
-    await expect(page.getByRole("group",{name:"Direct",exact:true}).getByLabel("Forecast units / month")).toHaveValue("100");
-    await page.getByRole("group",{name:"Direct",exact:true}).getByLabel("Customer selling price (£)").fill("6.25");
+    await page
+      .getByRole("button", { name: "Edit saved product pricing", exact: true })
+      .first()
+      .click();
+    await page
+      .getByText("Forecast sales volume (optional)", { exact: true })
+      .click();
+    await expect(
+      page
+        .getByRole("group", { name: "Direct", exact: true })
+        .getByLabel("Forecast units / month"),
+    ).toHaveValue("100");
+    await page
+      .getByRole("group", { name: "Direct", exact: true })
+      .getByLabel("Customer selling price (£)")
+      .fill("6.25");
     await expect(page.locator(".save-status")).toContainText("Saved");
-    const reopened=await(await page.request.get("/api/business")).json();
-    expect(reopened.products.find((p:any)=>p.recipeId===recipe.id).channels.find((c:any)=>c.channelId==="direct").price).toBe(6.25);
+    const reopened = await (await page.request.get("/api/business")).json();
+    expect(
+      reopened.products
+        .find((p: any) => p.recipeId === recipe.id)
+        .channels.find((c: any) => c.channelId === "direct").price,
+    ).toBe(6.25);
     await navigate(page, "Money");
     await page.getByLabel("Search desserts…").fill(recipe.name);
     await page.getByRole("button", { name: new RegExp(recipe.name) }).click();

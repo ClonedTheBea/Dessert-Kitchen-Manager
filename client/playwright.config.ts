@@ -19,7 +19,8 @@ export default defineConfig({
     timeout: 60000,
     reuseExistingServer: false,
     env: {
-      DatabasePath: path.resolve("test-results", `kitchen-${Date.now()}.db`),
+      DatabasePath: process.env.KITCHEN_TEST_DATABASE ?? path.resolve("test-results", `kitchen-${Date.now()}.db`),
+      SeedExampleData: process.env.KITCHEN_TEST_SEED ?? "true",
     },
   },
 });

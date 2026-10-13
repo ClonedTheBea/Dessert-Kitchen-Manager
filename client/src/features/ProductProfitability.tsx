@@ -21,11 +21,15 @@ export function ProductFields({
   business: b,
   value: p,
   change: set,
+  channelId,
+  advancedOpen = false,
 }: {
   recipe: Recipe;
   business: Business;
   value: ProductPlan;
   change: (p: ProductPlan) => void;
+  channelId?: string;
+  advancedOpen?: boolean;
 }) {
   return (
     <div className="product-fields">
@@ -34,38 +38,45 @@ export function ProductFields({
         yields {number(r.yield)}. Monthly volume is per product/channel, not
         whole baskets.
       </p>
-      {p.channels.map((c, i) => (
-        <fieldset key={c.channelId}>
-          <legend>{b.channels.find((x) => x.id === c.channelId)?.name}</legend>
-          <div className="form-grid">
-            <N
-              label="Customer selling price (£)"
-              value={c.price}
-              onChange={(price) =>
-                set({
-                  ...p,
-                  channels: p.channels.map((x, j) =>
-                    j === i ? { ...x, price } : x,
-                  ),
-                })
-              }
-            />
-            <N
-              label="Forecast units / month"
-              value={c.monthlyUnits}
-              onChange={(monthlyUnits) =>
-                set({
-                  ...p,
-                  channels: p.channels.map((x, j) =>
-                    j === i ? { ...x, monthlyUnits } : x,
-                  ),
-                })
-              }
-            />
-          </div>
-        </fieldset>
-      ))}
-      <details>
+      {p.channels.map((c, i) =>
+        channelId && c.channelId !== channelId ? null : (
+          <fieldset key={c.channelId}>
+            <legend>
+              {b.channels.find((x) => x.id === c.channelId)?.name}
+            </legend>
+            <div className="form-grid">
+              <N
+                label="Customer selling price (£)"
+                value={c.price}
+                onChange={(price) =>
+                  set({
+                    ...p,
+                    channels: p.channels.map((x, j) =>
+                      j === i ? { ...x, price } : x,
+                    ),
+                  })
+                }
+              />
+              <details>
+                <summary>Forecast sales volume (optional)</summary>
+                <N
+                  label="Forecast units / month"
+                  value={c.monthlyUnits}
+                  onChange={(monthlyUnits) =>
+                    set({
+                      ...p,
+                      channels: p.channels.map((x, j) =>
+                        j === i ? { ...x, monthlyUnits } : x,
+                      ),
+                    })
+                  }
+                />
+              </details>
+            </div>
+          </fieldset>
+        ),
+      )}
+      <details open={advancedOpen || undefined}>
         <summary>Product VAT, equipment & direct labour</summary>
         <C
           label="Energy costs reviewed (including no energy needed)"
@@ -80,7 +91,7 @@ export function ProductFields({
               set({ ...p, vatTreatment, outputVatPercent: 0 })
             }
             options={[
-              ["unconfigured", "Unconfigured — assumed zero"],
+              ["unconfigured", "Not reviewed — check when needed"],
               ["taxable", "Taxable — enter rate"],
               ["zero", "Zero-rated"],
               ["exempt", "Exempt"],
@@ -94,13 +105,20 @@ export function ProductFields({
               onChange={(outputVatPercent) => set({ ...p, outputVatPercent })}
             />
           )}
-          <N
-            label="Product input VAT recovery limit (%)"
-            value={p.inputRecoveryPercent}
-            onChange={(inputRecoveryPercent) =>
-              set({ ...p, inputRecoveryPercent })
-            }
-          />
+          {b.vatRegistered ? (
+            <N
+              label="Product input VAT recovery limit (%)"
+              value={p.inputRecoveryPercent}
+              onChange={(inputRecoveryPercent) =>
+                set({ ...p, inputRecoveryPercent })
+              }
+            />
+          ) : (
+            <p>
+              Not VAT registered: no input VAT is recovered. Any saved product
+              recovery limit is retained for history and does not apply.
+            </p>
+          )}
           <S
             label="Direct labour basis"
             value={p.labourBasis}
@@ -160,23 +178,40 @@ export function ConfigureProduct({
   recipe,
   initial,
   done,
+  advancedOpen = false,
 }: {
   recipe: Recipe;
   initial: Business;
+  advancedOpen?: boolean;
   done: () => void;
 }) {
   const [b, B] = useState(initial);
   const save = useAutoSave(b, B, "/business");
   const p = productPlan(recipe, b);
+  const [channel, C] = useState(b.channels[0]?.id ?? "");
   return (
     <section className="panel">
       <h2>Configure {recipe.name}</h2>
       <p>
-        Live business settings · effective {b.effectiveFrom}. Edits autosave and
-        retain a business revision. Recipe and supplier records are unchanged.
+        Saved prices — changes here autosave. To experiment without saving, use
+        Try a price. Recipe and supplier records stay unchanged.
       </p>
       <SaveStatus save={save} />
+      {b.effectiveFrom > today() && (
+        <p>
+          These saved prices take effect on {b.effectiveFrom}. Today’s price
+          test uses the prices currently in effect.
+        </p>
+      )}
+      <S
+        label="Price to save for channel"
+        value={channel}
+        onChange={C}
+        options={b.channels.map((c) => [c.id, c.name])}
+      />
       <ProductFields
+        channelId={channel}
+        advancedOpen={advancedOpen}
         recipe={recipe}
         business={b}
         value={p}

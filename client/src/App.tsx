@@ -252,7 +252,7 @@ export default function App() {
                 />
               )}
               {page === "Financial planner" && (
-                <MoneyWorkspace
+                <MoneyWorkspace key={navSeq} initialAction={action}
                   openSettings={(action) => void navigate("Settings", action)}
                   state={state}
                   refresh={refresh}

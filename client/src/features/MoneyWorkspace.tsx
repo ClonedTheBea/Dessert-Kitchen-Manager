@@ -6,7 +6,10 @@ import { productPlan } from "../businessTypes";
 import { ErrorBox, Modal, type Notify } from "../components/ui";
 import FinancialGlossary from "./FinancialGlossary";
 import { N } from "./BusinessSettings";
-type Overview = {
+export type Overview = {
+  knownMonthlyCosts: number | null;
+  knownContribution: number | null;
+  requirements: { message: string; action: string }[];
   settings: Business;
   model: Model | null;
   missing: string[];
@@ -63,24 +66,37 @@ function Bars({
     </section>
   );
 }
-function PricePanel({
+export function PricePanel({
   id,
   data,
   state,
   close,
   settings,
+  inline = false,
+  quick = false,
 }: {
   id: string;
-  data: Overview;
+  data: { settings: Business };
   state: State;
   close: () => void;
   settings: (action?: string) => void;
+  inline?: boolean;
+  quick?: boolean;
 }) {
   const [channel, C] = useState(data.settings.channels[0]?.id ?? "");
   const [result, R] = useState<Breakdown>();
   const [error, E] = useState("");
-  const [trial, T] = useState(false);
-  const [price, P] = useState(0);
+  const recipe = state.recipes.find((v) => v.recipe.id === id)?.recipe;
+  const savedPrice = (c: string) =>
+    data.settings.products
+      .find((p) => p.recipeId === id)
+      ?.channels.find((x) => x.channelId === c)?.price ??
+    recipe?.sellingPrice ??
+    0;
+  const [trial, T] = useState(quick);
+  const [price, P] = useState(() =>
+    savedPrice(data.settings.channels[0]?.id ?? ""),
+  );
   useEffect(() => {
     let active = true;
     R(undefined);
@@ -116,49 +132,126 @@ function PricePanel({
     return () => {
       active = false;
     };
-  }, [id, channel, trial, price, data, state]);
+  }, [id, channel, trial, price, data.settings, state]);
   let offset = 0;
   const r = result?.row;
+  const knownRemainder = result
+    ? result.row.grossPrice -
+      result.row.ingredients -
+      result.row.packaging -
+      result.row.labour -
+      result.row.otherVariable -
+      (result.missing.some(
+        (m) => m.includes("energy") || m.includes("unit price"),
+      )
+        ? 0
+        : result.row.energy) -
+      (result.missing.some((m) => m.includes("commission"))
+        ? 0
+        : result.row.platformFees) -
+      (result.missing.some((m) => m.includes("VAT treatment"))
+        ? 0
+        : result.row.outputVat)
+    : null;
   const shownContribution = result?.segments.length
     ? (result.segments.find((s) => s.key === "contribution")?.amount ?? 0)
     : r?.contribution;
-  return (
-    <Modal title="Price Breakdown" close={close}>
-      <div className="price-breakdown-panel">
-        <div className="eyebrow">WHERE DOES THE MONEY GO?</div>
-        <h3>
-          {r?.name ??
-            state.recipes.find((v) => v.recipe.id === id)?.recipe.name}
-        </h3>
-        <p className="price-heading">
-          {r ? money(r.grossPrice) : "…"} <small>per product · estimated</small>
-        </p>
-        <label>
-          Sales channel
-          <select
-            aria-label="Sales channel"
-            value={channel}
-            onChange={(e) => {
-              C(e.target.value);
-              T(false);
-            }}
-          >
-            {data.settings.channels.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+  const content = (
+    <div
+      className={inline ? "price-breakdown-inline" : "price-breakdown-panel"}
+    >
+      <div className="eyebrow">WHERE DOES THE MONEY GO?</div>
+      <h3>
+        {r?.name ?? state.recipes.find((v) => v.recipe.id === id)?.recipe.name}
+      </h3>
+      <p className="price-heading">
+        {r ? money(r.grossPrice) : "…"} <small>per product · estimated</small>
+      </p>
+      {quick && (
+        <section className="temporary-price">
+          <h3>Try a selling price</h3>
+          <p>
+            Temporary test — your saved price stays unchanged. Saved{" "}
+            {data.settings.channels.find((c) => c.id === channel)?.name} price:{" "}
+            {money(savedPrice(channel))}.
+          </p>
+          <N label="Test selling price (£)" value={price} onChange={P} />
+          <button className="secondary" onClick={() => P(savedPrice(channel))}>
+            Reset to saved price
+          </button>
+        </section>
+      )}
+      <label>
+        Sales channel
+        <select
+          aria-label="Sales channel"
+          value={channel}
+          onChange={(e) => {
+            C(e.target.value);
+            if (quick) {
+              T(true);
+            } else T(false);
+          }}
+        >
+          {data.settings.channels.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <ErrorBox error={error} />
+      {result ? (
+        <>
+          {!data.settings.vatRegistered && (
+            <p className="help">
+              Business is not VAT registered: no sales VAT is deducted and
+              purchase VAT stays in costs.
+            </p>
+          )}
+          {result.missing.length > 0 && (
+            <section className="known-cost-summary">
+              <h3>What we know so far</h3>
+              <p>
+                Ingredients {money(r!.ingredients)} · Packaging{" "}
+                {money(r!.packaging)}
+              </p>
+              <p>
+                <strong>
+                  {knownRemainder != null && knownRemainder < 0
+                    ? `${money(-knownRemainder)} — known costs already exceed the price`
+                    : `${money(knownRemainder)} uncosted remainder`}
+                </strong>
+              </p>
+              <p>
+                This amount still needs to cover the missing costs below and
+                monthly business expenses. It is not contribution or profit.
+              </p>
+            </section>
+          )}
+          <ul className="setup-list">
+            {result.missing.map((m) => (
+              <li key={m}>
+                {m}{" "}
+                <button
+                  className="text-button"
+                  onClick={() =>
+                    settings(
+                      m.includes("commission")
+                        ? "business:platforms"
+                        : m.includes("unit price")
+                          ? "business:utilities"
+                          : "pricing:" + id + ":advanced",
+                    )
+                  }
+                >
+                  Resolve this cost
+                </button>
+              </li>
             ))}
-          </select>
-        </label>
-        <ErrorBox error={error} />
-        {result ? (
-          <>
-            <ul className="setup-list">
-              {result.missing.map((m) => (
-                <li key={m}>{m}</li>
-              ))}
-            </ul>
-            {result.missing.some(
+          </ul>
+          {!inline &&
+            result.missing.some(
               (m) => m.includes("commission") || m.includes("unit price"),
             ) && (
               <button
@@ -174,64 +267,66 @@ function PricePanel({
                 Review business rates in Settings
               </button>
             )}
-            {result.missing.length > 0 && (
-              <button
-                className="secondary"
-                onClick={() => settings("pricing:" + id)}
+          {!inline && result.missing.length > 0 && (
+            <button
+              className="secondary"
+              onClick={() => settings("pricing:" + id)}
+            >
+              Complete costs in Settings
+            </button>
+          )}
+          {result.chartMessage ? (
+            <p role="status">{result.chartMessage}</p>
+          ) : (
+            <div className="price-doughnut">
+              <svg
+                viewBox="0 0 220 220"
+                role="img"
+                aria-label={`Selling price ${money(r!.grossPrice)} divided into direct costs, sales VAT and contribution`}
               >
-                Complete costs in Settings
-              </button>
-            )}
-            {result.chartMessage ? (
-              <p role="status">{result.chartMessage}</p>
-            ) : (
-              <div className="price-doughnut">
-                <svg
-                  viewBox="0 0 220 220"
-                  role="img"
-                  aria-label={`Selling price ${money(r!.grossPrice)} divided into direct costs, sales VAT and contribution`}
+                <circle
+                  cx="110"
+                  cy="110"
+                  r="80"
+                  fill="none"
+                  stroke="var(--surface-soft)"
+                  strokeWidth="28"
+                />
+                {result.segments.map((s) => {
+                  const start = offset;
+                  offset += s.percent;
+                  return (
+                    <circle
+                      key={s.key}
+                      cx="110"
+                      cy="110"
+                      r="80"
+                      fill="none"
+                      stroke={colors[s.key]}
+                      strokeWidth="28"
+                      pathLength="100"
+                      strokeDasharray={`${s.percent} ${100 - s.percent}`}
+                      strokeDashoffset={-start}
+                      transform="rotate(-90 110 110)"
+                    />
+                  );
+                })}
+                <text x="110" y="107" textAnchor="middle">
+                  {money(shownContribution)}
+                </text>
+                <text
+                  x="110"
+                  y="129"
+                  textAnchor="middle"
+                  className="doughnut-caption"
                 >
-                  <circle
-                    cx="110"
-                    cy="110"
-                    r="80"
-                    fill="none"
-                    stroke="var(--surface-soft)"
-                    strokeWidth="28"
-                  />
-                  {result.segments.map((s) => {
-                    const start = offset;
-                    offset += s.percent;
-                    return (
-                      <circle
-                        key={s.key}
-                        cx="110"
-                        cy="110"
-                        r="80"
-                        fill="none"
-                        stroke={colors[s.key]}
-                        strokeWidth="28"
-                        pathLength="100"
-                        strokeDasharray={`${s.percent} ${100 - s.percent}`}
-                        strokeDashoffset={-start}
-                        transform="rotate(-90 110 110)"
-                      />
-                    );
-                  })}
-                  <text x="110" y="107" textAnchor="middle">
-                    {money(shownContribution)}
-                  </text>
-                  <text
-                    x="110"
-                    y="129"
-                    textAnchor="middle"
-                    className="doughnut-caption"
-                  >
-                    left after direct costs
-                  </text>
-                </svg>
-              </div>
-            )}
+                  left after direct costs
+                </text>
+              </svg>
+            </div>
+          )}
+          <details open={result.missing.length === 0 || undefined}>
+            <summary>Detailed cost list</summary>
             <dl className="breakdown price-legend">
               {(result.segments.length
                 ? result.segments.map((s) => [
@@ -246,7 +341,11 @@ function PricePanel({
                     [
                       "energy",
                       "Energy (estimate, review above)",
-                      result.missing.some(m=>m.includes("energy")||m.includes("unit price")) ? null : r!.energy,
+                      result.missing.some(
+                        (m) => m.includes("energy") || m.includes("unit price"),
+                      )
+                        ? null
+                        : r!.energy,
                       "",
                     ],
                     [
@@ -258,10 +357,19 @@ function PricePanel({
                     [
                       "fees",
                       "Platform fees (review above)",
-                      result.missing.some(m=>m.includes("commission")) ? null : r!.platformFees,
+                      result.missing.some((m) => m.includes("commission"))
+                        ? null
+                        : r!.platformFees,
                       "",
                     ],
-                    ["vat", "Sales VAT", result.missing.some(m=>m.includes("VAT treatment")) ? null : r!.outputVat, ""],
+                    [
+                      "vat",
+                      "Sales VAT",
+                      result.missing.some((m) => m.includes("VAT treatment"))
+                        ? null
+                        : r!.outputVat,
+                      "",
+                    ],
                   ]
               ).map(([key, name, value, percent]) => (
                 <div key={String(key)}>
@@ -270,90 +378,126 @@ function PricePanel({
                     {name}
                   </dt>
                   <dd>
-                    {money(value == null ? null : Number(value))} <small>{percent}</small>
+                    {money(value == null ? null : Number(value))}{" "}
+                    <small>{percent}</small>
                   </dd>
                 </div>
               ))}
             </dl>
-            <p>
-              <strong>
-                {result.missing.length
-                  ? "Contribution incomplete"
-                  : `${money(shownContribution)} money left after direct costs`}
-              </strong>
-            </p>
-            <p>
-              Money remaining after direct selling costs, before monthly
-              business expenses.
-            </p>
+          </details>
+          <p>
+            <strong>
+              {result.missing.length
+                ? "Contribution incomplete"
+                : `${money(shownContribution)} money left after direct costs`}
+            </strong>
+          </p>
+          <p>
+            Money remaining after direct selling costs, before monthly business
+            expenses.
+          </p>
+          {r!.warnings.some((w) =>
+            w.toLowerCase().includes("illustrative"),
+          ) && (
             <p className="help">
-              Displayed pennies and percentages are apportioned to total the
-              selling price and 100%. Calculations retain unrounded values.
+              Uses illustrative supplier prices — replace them with your own
+              quotes for a more reliable estimate.
             </p>
-            {r!.warnings.map((w) => (
-              <p className="help" key={w}>
-                {w}
-              </p>
-            ))}
-            <details>
-              <summary>After monthly expenses</summary>
+          )}
+          <details>
+            <summary>Calculation notes & source warnings</summary>
+            {result.segments.length > 0 && (
               <p>
-                {result.missing.length
-                  ? "Complete costs first."
-                  : `${money(r!.allocatedOverheads)} estimated overhead allocation per product; ${money(r!.operatingProfit)} estimated operating profit per product.`}{" "}
-                Allocation uses {data.settings.allocationMethod} and saved
-                product sales volumes. This is not realised profit. Owner
-                compensation stays separate.
+                Displayed pennies and percentages total the selling price and
+                100%. Calculations keep their original precision.
               </p>
-            </details>
-            {!trial && (
-              <button
-                className="secondary"
-                onClick={() => {
-                  P(r!.grossPrice);
-                  T(true);
-                }}
-              >
-                Try a Different Price
-              </button>
             )}
+            {r!.warnings
+              .filter(
+                (w) =>
+                  data.settings.vatRegistered || !w.includes("VAT treatment"),
+              )
+              .map((w) => (
+                <p className="help" key={w}>
+                  {w}
+                </p>
+              ))}
+          </details>
+          <details>
+            <summary>After monthly expenses</summary>
+            <p>
+              {result.missing.length
+                ? "Complete costs first."
+                : `${money(r!.allocatedOverheads)} estimated overhead allocation per product; ${money(r!.operatingProfit)} estimated operating profit per product.`}{" "}
+              Allocation uses {data.settings.allocationMethod} and saved product
+              sales volumes. This is not realised profit. Owner compensation
+              stays separate.
+            </p>
+          </details>
+          {!trial && !quick && (
+            <button
+              className="secondary"
+              onClick={() => {
+                P(r!.grossPrice);
+                T(true);
+              }}
+            >
+              Try a Different Price
+            </button>
+          )}
+          {!inline && (
             <button
               className="secondary"
               onClick={() => settings("pricing:" + id)}
             >
               Edit saved product pricing in Settings
             </button>
-          </>
-        ) : (
-          <p>{error ? "Check this recipe and its supplier prices to complete the breakdown." : "Loading breakdown…"}</p>
-        )}
-        {trial && (
-          <section className="temporary-price">
-            <h3>Temporary price test</h3>
-            <p>Only this view changes. Nothing is saved.</p>
-            <N label="Trial selling price (£)" value={price} onChange={P} />
-            <button className="secondary" onClick={() => T(false)}>
-              Reset price test
-            </button>
-          </section>
-        )}
-      </div>
+          )}
+        </>
+      ) : (
+        <p>
+          {error
+            ? "Check this recipe and its supplier prices to complete the breakdown."
+            : "Loading breakdown…"}
+        </p>
+      )}
+      {trial && !quick && (
+        <section className="temporary-price">
+          <h3>Temporary price test</h3>
+          <p>Only this view changes. Nothing is saved.</p>
+          <N label="Trial selling price (£)" value={price} onChange={P} />
+          <button className="secondary" onClick={() => T(false)}>
+            Reset price test
+          </button>
+        </section>
+      )}
+    </div>
+  );
+  return inline ? (
+    content
+  ) : (
+    <Modal title="Price Breakdown" close={close}>
+      {content}
     </Modal>
   );
 }
 export default function MoneyWorkspace({
   state,
   openSettings,
+  initialAction = "",
 }: {
   state: State;
   refresh: () => Promise<void>;
   notify: Notify;
   openSettings: (action?: string) => void;
+  initialAction?: string;
 }) {
   const [data, D] = useState<Overview>();
   const [error, E] = useState("");
   const [search, S] = useState("");
-  const [selected, P] = useState("");
+  const [selected, P] = useState(
+    initialAction.startsWith("product:") ? initialAction.slice(8) : "",
+  );
   const [glossary, G] = useState(false);
   useEffect(() => {
     api<Overview>("/financial/overview")
@@ -389,12 +533,18 @@ export default function MoneyWorkspace({
             {[
               [
                 "Projected monthly running costs",
-                m ? money(m.fixedCosts) : "Setup needed",
-                "per month",
+                data.knownMonthlyCosts != null
+                  ? money(data.knownMonthlyCosts)
+                  : "Add your first bill",
+                m
+                  ? "per month"
+                  : "known commitments per month · more costs may apply",
               ],
               [
                 "Average contribution per order",
-                m ? money(m.contributionPerOrder) : "Setup needed",
+                data.knownContribution != null
+                  ? money(data.knownContribution)
+                  : "Check direct costs",
                 "before monthly expenses",
               ],
               [
@@ -403,12 +553,12 @@ export default function MoneyWorkspace({
                   ? evening == null
                     ? "Not achievable"
                     : number(evening)
-                  : "Setup needed",
+                  : "Add sales assumptions",
                 "per trading evening",
               ],
               [
                 "Projected monthly operating profit",
-                m ? money(m.operatingProfit) : "Setup needed",
+                m ? money(m.operatingProfit) : "Add sales assumptions",
                 "per month · before owner compensation and tax",
               ],
             ].map(([title, value, note]) => (
@@ -416,6 +566,22 @@ export default function MoneyWorkspace({
                 <h2>{title}</h2>
                 <strong className="financial-value">{value}</strong>
                 <p>{note}</p>
+                {!m && (
+                  <button
+                    className="text-button"
+                    onClick={() =>
+                      openSettings(
+                        title.includes("running")
+                          ? "business:expenses"
+                          : "business:forecast",
+                      )
+                    }
+                  >
+                    {title.includes("running")
+                      ? "Review regular bills"
+                      : "See what is needed"}
+                  </button>
+                )}
               </section>
             ))}
           </div>
@@ -423,8 +589,16 @@ export default function MoneyWorkspace({
             <section className="panel">
               <h2>Finish your forecast setup</h2>
               <ul>
-                {data.missing.map((s) => (
-                  <li key={s}>{s}</li>
+                {data.requirements.map((s) => (
+                  <li key={s.message}>
+                    {s.message}{" "}
+                    <button
+                      className="text-button"
+                      onClick={() => openSettings(s.action)}
+                    >
+                      Open the relevant settings
+                    </button>
+                  </li>
                 ))}
               </ul>
               <button className="secondary" onClick={() => openSettings()}>
@@ -443,6 +617,12 @@ export default function MoneyWorkspace({
                 onChange={(e) => S(e.target.value)}
               />
             </label>
+            {state.recipes.length === 0 && (
+              <p>
+                No recipes yet. Add a recipe in Recipes, then return here to
+                test a price.
+              </p>
+            )}
             <div className="dessert-results">
               {state.recipes
                 .filter(
@@ -462,6 +642,12 @@ export default function MoneyWorkspace({
                 ))}
             </div>
           </section>
+          {!m && data.knownMonthlyCosts != null && (
+            <Bars
+              title="Known monthly running costs"
+              rows={Object.entries(data.runningCosts)}
+            />
+          )}
           {m && (
             <>
               <div className="finance-chart-grid">
