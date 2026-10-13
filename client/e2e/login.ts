@@ -27,6 +27,16 @@ export async function login(page: Page) {
 }
 
 export async function navigate(page: Page, name: string) {
+  if (name === "Settings") {
+    const b = page.getByRole("button", {
+      name: "Settings & backups",
+      exact: true,
+    });
+    if (!(await b.isVisible()))
+      await page.getByRole("button", { name: "Toggle navigation" }).click();
+    await b.click();
+    return;
+  }
   const primary =
     name === "Ingredients"
       ? "Recipes"

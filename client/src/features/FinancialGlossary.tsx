@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 export const terms: Record<string, { text: string; example: string }> = {
   Contribution: {
-    text: "Net sales less variable production and channel costs, before fixed overheads and separate owner compensation.",
+    text: "Money remaining after direct selling costs, before monthly business expenses.",
     example: "£5 net sales less £2 variable costs leaves £3 contribution.",
   },
   "Contribution margin": {

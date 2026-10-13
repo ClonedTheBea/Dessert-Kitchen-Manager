@@ -13,7 +13,7 @@ import type {
   ProfitScenario,
 } from "../businessTypes";
 import { productPlan } from "../businessTypes";
-import { BusinessFields, N, T, S } from "./BusinessSettings";
+import { BusinessFields, N, T, S, C } from "./BusinessSettings";
 import { Term } from "./FinancialGlossary";
 
 export function ProductFields({
@@ -67,6 +67,11 @@ export function ProductFields({
       ))}
       <details>
         <summary>Product VAT, equipment & direct labour</summary>
+        <C
+          label="Energy costs reviewed (including no energy needed)"
+          value={p.energyConfirmed ?? false}
+          onChange={(energyConfirmed) => set({ ...p, energyConfirmed })}
+        />
         <div className="form-grid">
           <S
             label="Product VAT treatment"
@@ -151,7 +156,7 @@ export function ProductFields({
     </div>
   );
 }
-function ConfigureProduct({
+export function ConfigureProduct({
   recipe,
   initial,
   done,
@@ -281,7 +286,10 @@ function Breakdown({ row: r }: { row: ProductResult }) {
 function Totals({ report: r }: { report: ProfitReport }) {
   return (
     <>
-      <p className="help">Whole-business forecast: totals include all configured product/channel volumes. Search filters the product cards only.</p>
+      <p className="help">
+        Whole-business forecast: totals include all configured product/channel
+        volumes. Search filters the product cards only.
+      </p>
       <div className="profit-summary">
         <section>
           <span>Forecast sales</span>
@@ -424,7 +432,7 @@ function Products({
     </>
   );
 }
-function Simulator({
+export function Simulator({
   context,
   recipe: initialRecipe,
   state,

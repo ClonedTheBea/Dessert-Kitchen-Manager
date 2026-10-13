@@ -253,6 +253,7 @@ export default function App() {
               )}
               {page === "Financial planner" && (
                 <MoneyWorkspace
+                  openSettings={(action) => void navigate("Settings", action)}
                   state={state}
                   refresh={refresh}
                   notify={setToast}
@@ -261,7 +262,7 @@ export default function App() {
               {page === "Inventory" && (
                 <Inventory key={navSeq} initialAction={action} state={state} />
               )}
-              {page === "Settings" && <SettingsPage state={state} />}
+              {page === "Settings" && <SettingsPage key={navSeq} state={state} initialAction={action} />}
             </>
           )}
           <footer className="page-footer">

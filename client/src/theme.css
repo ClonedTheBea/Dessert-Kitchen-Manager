@@ -1,6 +1,13 @@
 /* Apiary Dev Tools reference: src/styles/global.css + tool-ui.css.
    Brand primitives live here; components consume semantic roles below. */
 :root {
+  --chart-1: #412653;
+  --chart-2: #3f567f;
+  --chart-3: #b57826;
+  --chart-4: #8e5897;
+  --chart-5: #bd5945;
+  --chart-6: #658190;
+  --chart-7: #357455;
   --brand-night: #191522;
   --brand-nav: #211a2c;
   --brand-plum: #412653;

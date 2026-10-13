@@ -10,12 +10,6 @@ async function post(page: Page, path: string, data: unknown) {
   expect(r.ok(), await r.text()).toBe(true);
   return r.json();
 }
-async function moneyTab(page: Page, name: string) {
-  await page
-    .getByRole("navigation", { name: "Money workspace" })
-    .getByRole("button", { name, exact: true })
-    .click();
-}
 async function audit(page: Page, name: string, width: number) {
   await page.getByRole("heading").first().click();
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -142,8 +136,8 @@ for (const width of [1440, 390])
       dateReviewed: true,
       dateEvidence: "Test review",
     });
-    await navigate(page, "Money");
-    await moneyTab(page, "Business settings");
+    await navigate(page, "Settings");
+    await page.getByText("Utilities & equipment", { exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "Business settings", exact: true }),
     ).toBeVisible();
@@ -157,24 +151,21 @@ for (const width of [1440, 390])
     await page.getByLabel("Equipment name", { exact: true }).fill("Test oven");
     await page.getByLabel("Rated consumption (kW)").fill("2");
     await page.getByLabel("Average load (%)").fill("50");
-    await page
-      .getByText("Rent, insurance & other expenses", { exact: true })
-      .click();
+    await page.getByText("Premises and regular costs", { exact: true }).click();
     await page
       .getByRole("button", { name: "Add expense", exact: true })
       .click();
     await page
       .getByLabel("Expense name", { exact: true })
       .fill("Annual insurance");
+    await page.getByText("Advanced expense options", { exact: true }).click();
     await page.getByLabel("Expense category").selectOption("Insurance");
     await page.getByLabel("Expense period").selectOption("annual");
     await page.getByLabel("Expense amount (£)", { exact: true }).fill("1200");
     await expect(
       page.getByText("£100.00 per month before VAT recovery adjustment"),
     ).toBeVisible();
-    await page
-      .getByText("Sales channels & commissions", { exact: true })
-      .click();
+    await page.getByText("Selling platforms", { exact: true }).click();
     await page
       .getByLabel("Uber Eats commission (%)", { exact: true })
       .fill("30");
@@ -185,21 +176,10 @@ for (const width of [1440, 390])
     await page.getByLabel("Deliveroo fee VAT (%)").fill("20");
     await expect(page.locator(".save-status")).toContainText("Saved");
     await audit(page, "settings", width);
-    await moneyTab(page, "Product profitability");
-    await expect(
-      page.getByRole("heading", { name: "Product profitability", exact: true }),
-    ).toBeVisible();
-    await page.getByLabel("Search products").fill(recipe.name);
-    await expect(page.locator(".profitability-product")).toHaveCount(1);
-    await expect(page.locator(".profitability-product")).toContainText(
-      "Not allocated",
-    );
     await page
-      .getByLabel("Product to configure or simulate")
-      .selectOption(recipe.id);
-    await page
-      .getByRole("button", { name: "Configure product", exact: true })
+      .getByRole("button", { name: "Product pricing", exact: true })
       .click();
+    await page.getByLabel("Choose a product").selectOption(recipe.id);
     const direct = page.getByRole("group", { name: "Direct", exact: true });
     await direct.getByLabel("Forecast units / month").fill("100");
     const uber = page.getByRole("group", { name: "Uber Eats", exact: true });
@@ -217,21 +197,27 @@ for (const width of [1440, 390])
     await page
       .getByRole("button", { name: "Return to catalogue", exact: true })
       .click();
-    await expect(page.locator(".profitability-product")).not.toContainText(
-      "Not allocated",
-    );
-    await page
-      .getByText("Direct — where each pound goes", { exact: true })
-      .click();
-    await expect(page.locator(".cost-breakdown").first()).toContainText(
-      "Ingredients",
-    );
-    await expect(page.locator(".cost-breakdown").first()).toContainText(
-      "£0.04",
-    );
-    const term=page.locator('.financial-term').filter({has:page.getByText('Estimated recipe cost',{exact:true})}).first();
-    await term.focus();await expect(term.getByRole('tooltip')).toBeVisible();await page.keyboard.press('Escape');await expect(term.getByRole('tooltip')).not.toBeVisible();
+    // Reopening must initialise from the latest saved business revision.
+    await page.getByLabel("Choose a product").selectOption(recipe.id);
+    await expect(page.getByRole("group",{name:"Direct",exact:true}).getByLabel("Forecast units / month")).toHaveValue("100");
+    await page.getByRole("group",{name:"Direct",exact:true}).getByLabel("Customer selling price (£)").fill("6.25");
+    await expect(page.locator(".save-status")).toContainText("Saved");
+    const reopened=await(await page.request.get("/api/business")).json();
+    expect(reopened.products.find((p:any)=>p.recipeId===recipe.id).channels.find((c:any)=>c.channelId==="direct").price).toBe(6.25);
+    await navigate(page, "Money");
+    await page.getByLabel("Search desserts…").fill(recipe.name);
+    await page.getByRole("button", { name: new RegExp(recipe.name) }).click();
+    await expect(
+      page.getByRole("dialog", { name: "Price Breakdown" }),
+    ).toBeVisible();
+    await expect(page.locator(".price-legend")).toContainText("£0.04");
+    await page.getByRole("button", { name: "Close dialog" }).click();
     await audit(page, "catalogue", width);
+    await navigate(page, "Settings");
+    await page
+      .getByRole("button", { name: "Product pricing", exact: true })
+      .click();
+    await page.getByLabel("Choose a product").selectOption(recipe.id);
     const beforeBusiness = await (
       await page.request.get("/api/business")
     ).json();
@@ -240,7 +226,7 @@ for (const width of [1440, 390])
       await page.request.get("/api/inventory/state")
     ).json();
     await page
-      .getByRole("button", { name: "Try pricing simulator", exact: true })
+      .getByRole("button", { name: "Advanced pricing scenarios", exact: true })
       .click();
     await expect(
       page.getByRole("heading", { name: "Pricing simulator", exact: true }),
@@ -260,10 +246,13 @@ for (const width of [1440, 390])
     await page
       .getByText("Simulate business rates & operating costs", { exact: true })
       .click();
+    await page.getByText("Utilities & equipment", { exact: true }).click();
     await page
       .getByLabel("electricity unit rate (p/kWh)", { exact: true })
       .fill("40");
-    await page.getByText("VAT & overhead allocation", { exact: true }).click();
+    await page
+      .getByText("Advanced: VAT & overhead allocation", { exact: true })
+      .click();
     await page
       .getByLabel("Business is VAT registered", { exact: true })
       .check();
@@ -313,34 +302,20 @@ for (const width of [1440, 390])
       await (await page.request.get("/api/inventory/state")).json(),
     ).toEqual(beforeStock);
     await page.getByRole("button", { name: "Leave simulator" }).click();
+    await navigate(page, "Money");
     await expect(
-      page.getByText("Actual recorded operating profit", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByText("Profit after tax", { exact: true }),
+      page.getByText(
+        /Actual recorded operating profit and profit after tax are unavailable/,
+      ),
     ).toBeVisible();
     await page
-      .getByText("Use these assumptions in the financial planner", {
-        exact: true,
-      })
+      .getByRole("button", { name: "Financial glossary", exact: true })
       .click();
-    await page
-      .getByRole("button", {
-        name: "Create planner scenario from business forecast",
-        exact: true,
-      })
-      .click();
-    await expect(
-      page.getByRole("heading", { name: "Make the numbers work." }),
-    ).toBeVisible();
-    await expect(page.getByLabel("Scenario name", { exact: true })).toHaveValue(
-      /Business forecast/,
-    );
-    await moneyTab(page, "Glossary");
     await page.getByLabel("Search financial terms").fill("input VAT");
     await expect(page.locator(".glossary")).toContainText("£11");
     await audit(page, "glossary", width);
-    await moneyTab(page, "Business settings");
+    await navigate(page, "Settings");
+    await page.getByText("Utilities & equipment", { exact: true }).click();
     await page.getByText("Effective-date history", { exact: true }).click();
     await expect(page.getByText(/Revision .* effective/).first()).toBeVisible();
     await expect(

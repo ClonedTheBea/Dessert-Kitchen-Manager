@@ -5,7 +5,7 @@ using DessertKitchen.Domain;
 using DessertKitchen.Infrastructure;
 using Xunit;
 namespace DessertKitchen.Tests;
-public class BusinessTests
+public partial class BusinessTests
 {
     static DateOnly Today=>AllergenRules.Today();
     static Store Kitchen()

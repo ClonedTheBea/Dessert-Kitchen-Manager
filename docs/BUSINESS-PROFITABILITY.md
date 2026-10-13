@@ -2,7 +2,9 @@
 
 Implemented 13 October 2026 as an integrated pre–Sprint 3 improvement. Sprint 3 has not started and requires acceptance first.
 
-## Where to find it
+> Navigation in this original handover has been superseded by the [Financial UX Redesign](FINANCIAL-UX.md). The accounting methods below remain relevant.
+
+## Original navigation (historical)
 
 - **Settings & backups → Business settings**, also available in **Money → Business settings**: one shared configuration with autosave and effective-date revision history.
 - **Money → Product profitability**: searchable sellable recipes, channel comparisons, cost breakdowns, whole-business forecasts and recorded batch costs.

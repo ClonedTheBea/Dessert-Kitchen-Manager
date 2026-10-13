@@ -275,10 +275,10 @@ for (const width of [1440, 390])
     expect(current.balances.every((b: any) => b.quantity >= 0)).toBe(true);
     await navigate(page, "Money");
     await expect(page.locator(".planner-quick-results")).toContainText(
-      "Break-even orders / evening",
+      "Orders needed to break even",
     );
     await expect(page.locator(".planner-quick-results")).toContainText(
-      "/ month",
+      "per month",
     );
   });
 

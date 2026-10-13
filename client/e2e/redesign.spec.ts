@@ -113,7 +113,7 @@ for (const width of [1440, 390])
     ).toHaveCount(0);
     await expect(page.locator(".planner-quick-results")).toBeInViewport();
     await page
-      .getByText("Compare scenarios & actual production costs", { exact: true })
+      .getByRole("button", { name: "Financial glossary", exact: true })
       .click();
     await review("money-advanced");
     await navigate(page, "Stock");

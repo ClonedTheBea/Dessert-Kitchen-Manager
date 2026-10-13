@@ -1,13 +1,13 @@
 namespace DessertKitchen.Domain;
 
-public record UtilityTariff(string Kind, decimal PencePerUnit = 0, decimal StandingPenceDaily = 0, decimal VatPercent = 0, bool IncludesVat = true);
+public record UtilityTariff(string Kind, decimal PencePerUnit = 0, decimal StandingPenceDaily = 0, decimal VatPercent = 0, bool IncludesVat = true, bool? RateConfigured = null);
 public record KitchenEquipment(string Id, string Name, string Fuel = "electricity", decimal Kw = 0, decimal LoadPercent = 100);
 public record BusinessExpense(string Id, string Name, string Category, decimal Amount = 0, string Period = "monthly", string Attribution = "overhead", decimal VatPercent = 0, bool IncludesVat = true);
-public record SalesChannel(string Id, string Name, decimal CommissionPercent = 0, decimal FeeVatPercent = 0, decimal ChargePerUnit = 0, string CommissionBasis = "gross");
+public record SalesChannel(string Id, string Name, decimal CommissionPercent = 0, decimal FeeVatPercent = 0, decimal ChargePerUnit = 0, string CommissionBasis = "gross", bool? CommissionConfigured = null);
 public record EquipmentUse(string EquipmentId, decimal Minutes);
 public record ProductChannel(string ChannelId, decimal Price, decimal MonthlyUnits = 0);
-public record ProductPlan(string RecipeId, List<ProductChannel> Channels, decimal OutputVatPercent = 0, string VatTreatment = "unconfigured", decimal InputRecoveryPercent = 100, List<EquipmentUse>? Equipment = null, decimal WaterLitresPerBatch = 0, string LabourBasis = "recipe", decimal LabourMinutesPerBatch = 0);
-public record BusinessSettings(string Id, int Revision, string Name, DateOnly EffectiveFrom, bool VatRegistered, decimal InputRecoveryPercent, string AllocationMethod, List<UtilityTariff> Utilities, List<KitchenEquipment> Equipment, List<BusinessExpense> Expenses, List<SalesChannel> Channels, List<ProductPlan> Products, decimal StaffHoursWeekly = 0, decimal StaffHourlyRate = 0, decimal EmployerPercent = 0, decimal OwnerHoursWeekly = 0, decimal OwnerHourlyRate = 0);
+public record ProductPlan(string RecipeId, List<ProductChannel> Channels, decimal OutputVatPercent = 0, string VatTreatment = "unconfigured", decimal InputRecoveryPercent = 100, List<EquipmentUse>? Equipment = null, decimal WaterLitresPerBatch = 0, string LabourBasis = "recipe", decimal LabourMinutesPerBatch = 0, bool? EnergyConfirmed = null);
+public record BusinessSettings(string Id, int Revision, string Name, DateOnly EffectiveFrom, bool VatRegistered, decimal InputRecoveryPercent, string AllocationMethod, List<UtilityTariff> Utilities, List<KitchenEquipment> Equipment, List<BusinessExpense> Expenses, List<SalesChannel> Channels, List<ProductPlan> Products, decimal StaffHoursWeekly = 0, decimal StaffHourlyRate = 0, decimal EmployerPercent = 0, decimal OwnerHoursWeekly = 0, decimal OwnerHourlyRate = 0, Scenario? Forecast = null, Dictionary<string,decimal>? ForecastShares = null, bool ForecastReviewed = false, decimal ItemsPerOrder = 1, decimal DirectLabourPerOrder = 0);
 public record BusinessRevision(BusinessSettings Settings, string RecordedAt);
 public record RecipeExperiment(string RecipeId, decimal PortionFactor = 1, List<RecipeLine>? Lines = null);
 public record ProfitabilityRequest(DateOnly AsOf, BusinessSettings? Settings = null, List<RecipeExperiment>? Experiments = null);
@@ -22,6 +22,9 @@ public static class BusinessRules
     public static decimal Monthly(BusinessExpense e, decimal recovery) => Net(e.Amount, e.VatPercent, e.IncludesVat, recovery) / (e.Period == "annual" ? 12 : 1);
     public static void Validate(BusinessSettings s)
     {
+        Guard.Amount(s.ItemsPerOrder,"Products per order",1000);Guard.Require(s.ItemsPerOrder>0,"Products per order must be positive.");Guard.Amount(s.DirectLabourPerOrder,"Direct paid labour per order");
+        if(s.ForecastShares!=null){foreach(var share in s.ForecastShares){Guard.Require(s.Channels.Any(c=>c.Id==share.Key),"Unknown forecast channel.");Guard.Amount(share.Value,"Forecast sales share",100);}}
+        if(s.Forecast!=null){Costing.Model(s.Forecast with{Expenses=[],Channels=null,CommissionPercent=0,CommissionVatPercent=0,RecoverCommissionVat=false,StaffHoursWeekly=0,StaffHourlyRate=0,EmployerCostPercent=0,OwnerHoursWeekly=0,OwnerHourlyRate=0});Guard.Require(s.Forecast.TradingWeeks>0&&s.Forecast.TradingWeeks<=52,"Planned trading weeks must be greater than zero and at most 52.");Guard.Require(s.DirectLabourPerOrder<=s.Forecast.VariableCost,"Direct paid labour is part of the per-order direct cost, not an extra cost.");}
         Guard.Require(s.Id == "business", "Invalid business settings identity."); Guard.Text(s.Name, "Business settings name"); Guard.Require(s.EffectiveFrom != default, "Effective date is required.");
         Guard.Require(s.AllocationMethod is "units" or "revenue" or "labour", "Choose units, net revenue or direct labour minutes allocation.");
         Guard.Amount(s.InputRecoveryPercent, "Input VAT recovery", 100); Guard.Require(s.VatRegistered || s.InputRecoveryPercent == 0, "Input VAT recovery requires VAT registration.");

@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import SavedForecasts from "./SavedForecasts";
+import type { State } from "../types";
+import ForecastSettings from "./ForecastSettings";
+import { useEffect, useState, useRef } from "react";
 import { api, money, number } from "../api";
 import { SaveStatus, useAutoSave } from "../autoSave";
 import { ErrorBox, Field, Num } from "../components/ui";
@@ -111,7 +114,142 @@ export function BusinessFields({
           />
         </div>
       )}
-      <details open>
+      <details>
+        <summary>Premises and regular costs</summary>
+        <p className="help">
+          Add your regular bills as monthly or yearly amounts. Yearly bills are
+          spread across 12 months. Only add costs that are not already included
+          in your recipes or production costs.
+        </p>
+        {b.expenses.map((e, i) => {
+          const put = (k: string, v: unknown) =>
+            field(
+              "expenses",
+              b.expenses.map((x, j) => (j === i ? { ...x, [k]: v } : x)),
+            );
+          return (
+            <fieldset key={e.id}>
+              <legend>Expense {i + 1}</legend>
+              <div className="form-grid">
+                <T
+                  label="Expense name"
+                  value={e.name}
+                  onChange={(v) => put("name", v)}
+                />
+                <S
+                  label="Expense period"
+                  value={e.period}
+                  onChange={(v) => put("period", v)}
+                  options={
+                    e.attribution === "variable"
+                      ? [["unit", "Per sold unit"]]
+                      : [
+                          ["monthly", "Monthly"],
+                          ["annual", "Annual"],
+                        ]
+                  }
+                />
+                <N
+                  label="Expense amount (£)"
+                  value={e.amount}
+                  onChange={(v) => put("amount", v)}
+                />
+              </div>
+              <details>
+                <summary>Advanced expense options</summary>
+                <div className="form-grid">
+                  {" "}
+                  <S
+                    label="Expense category"
+                    value={e.category}
+                    onChange={(v) => put("category", v)}
+                    options={[
+                      "Rent",
+                      "Business rates",
+                      "Insurance",
+                      "Internet",
+                      "Marketing",
+                      "Subscriptions",
+                      "Utilities",
+                      "Other",
+                    ].map((v) => [v, v])}
+                  />
+                  <S
+                    label="Attribution"
+                    value={e.attribution}
+                    onChange={(v) =>
+                      field(
+                        "expenses",
+                        b.expenses.map((x, j) =>
+                          j === i
+                            ? {
+                                ...x,
+                                attribution: v,
+                                period: v === "variable" ? "unit" : "monthly",
+                              }
+                            : x,
+                        ),
+                      )
+                    }
+                    options={[
+                      ["overhead", "Fixed overhead"],
+                      ["direct", "Already attributed directly — exclude"],
+                      ["variable", "Other variable cost per sold unit"],
+                    ]}
+                  />
+                  <N
+                    label="Expense VAT (%)"
+                    value={e.vatPercent}
+                    onChange={(v) => put("vatPercent", v)}
+                  />
+                  <C
+                    label="Expense includes VAT"
+                    value={e.includesVat}
+                    onChange={(v) => put("includesVat", v)}
+                  />
+                </div>
+              </details>
+              <p>
+                {e.attribution === "direct"
+                  ? "Excluded from additional costs"
+                  : `${money(e.amount / (e.period === "annual" ? 12 : 1))} ${e.period === "unit" ? "per unit" : "per month"} before VAT recovery adjustment`}
+              </p>
+              <button
+                className="secondary"
+                onClick={() =>
+                  field(
+                    "expenses",
+                    b.expenses.filter((x) => x.id !== e.id),
+                  )
+                }
+              >
+                Remove expense
+              </button>
+            </fieldset>
+          );
+        })}
+        <button
+          className="secondary"
+          onClick={() =>
+            field("expenses", [
+              ...b.expenses,
+              {
+                id: crypto.randomUUID(),
+                name: "New expense",
+                category: "Other",
+                amount: 0,
+                period: "monthly",
+                attribution: "overhead",
+                vatPercent: 0,
+                includesVat: true,
+              },
+            ])
+          }
+        >
+          Add expense
+        </button>
+      </details>
+      <details>
         <summary>Utilities & equipment</summary>
         <p className="help">
           <Term name="Energy" /> is added to products only for configured
@@ -130,7 +268,9 @@ export function BusinessFields({
                   field(
                     "utilities",
                     b.utilities.map((x, j) =>
-                      j === i ? { ...x, pencePerUnit: v } : x,
+                      j === i
+                        ? { ...x, pencePerUnit: v, rateConfigured: true }
+                        : x,
                     ),
                   )
                 }
@@ -147,31 +287,43 @@ export function BusinessFields({
                   )
                 }
               />
-              <N
-                label={`${u.kind} VAT (%)`}
-                value={u.vatPercent}
-                onChange={(v) =>
-                  field(
-                    "utilities",
-                    b.utilities.map((x, j) =>
-                      j === i ? { ...x, vatPercent: v } : x,
-                    ),
-                  )
-                }
-              />
-              <C
-                label={`${u.kind} rates include VAT`}
-                value={u.includesVat}
-                onChange={(v) =>
-                  field(
-                    "utilities",
-                    b.utilities.map((x, j) =>
-                      j === i ? { ...x, includesVat: v } : x,
-                    ),
-                  )
-                }
-              />
             </div>
+            <details>
+              <summary>Advanced utility VAT options</summary>
+              <div className="form-grid">
+                {" "}
+                <N
+                  label={`${u.kind} VAT (%)`}
+                  value={u.vatPercent}
+                  onChange={(v) =>
+                    field(
+                      "utilities",
+                      b.utilities.map((x, j) =>
+                        j === i ? { ...x, vatPercent: v } : x,
+                      ),
+                    )
+                  }
+                />
+                <C
+                  label={`${u.kind} rates include VAT`}
+                  value={u.includesVat}
+                  onChange={(v) =>
+                    field(
+                      "utilities",
+                      b.utilities.map((x, j) =>
+                        j === i ? { ...x, includesVat: v } : x,
+                      ),
+                    )
+                  }
+                />
+              </div>
+            </details>
+            <p className="help">
+              {u.pencePerUnit}p per {u.kind === "water" ? "m³" : "kWh"} (
+              {money(u.pencePerUnit / 100)} per unit).{" "}
+              {!(u.rateConfigured ?? u.pencePerUnit !== 0) &&
+                "Unit rate not yet confirmed."}
+            </p>
           </fieldset>
         ))}
         {b.equipment.map((e, i) => (
@@ -266,142 +418,12 @@ export function BusinessFields({
         </button>
       </details>
       <details>
-        <summary>Rent, insurance & other expenses</summary>
+        <summary>Staff and labour</summary>
         <p className="help">
-          Annual amounts are divided by 12. Mark costs already in recipes or
-          batches as “Already attributed directly”; these are excluded from this
-          forecast, not added again. Per-unit expenses apply once to each sold
-          product. Do not also enter utility usage bills when modelling the same
-          energy through equipment.
-        </p>
-        {b.expenses.map((e, i) => {
-          const put = (k: string, v: unknown) =>
-            field(
-              "expenses",
-              b.expenses.map((x, j) => (j === i ? { ...x, [k]: v } : x)),
-            );
-          return (
-            <fieldset key={e.id}>
-              <legend>Expense {i + 1}</legend>
-              <div className="form-grid">
-                <T
-                  label="Expense name"
-                  value={e.name}
-                  onChange={(v) => put("name", v)}
-                />
-                <S
-                  label="Expense category"
-                  value={e.category}
-                  onChange={(v) => put("category", v)}
-                  options={[
-                    "Rent",
-                    "Business rates",
-                    "Insurance",
-                    "Marketing",
-                    "Subscriptions",
-                    "Utilities",
-                    "Other",
-                  ].map((v) => [v, v])}
-                />
-                <S
-                  label="Attribution"
-                  value={e.attribution}
-                  onChange={(v) =>
-                    field(
-                      "expenses",
-                      b.expenses.map((x, j) =>
-                        j === i
-                          ? {
-                              ...x,
-                              attribution: v,
-                              period: v === "variable" ? "unit" : "monthly",
-                            }
-                          : x,
-                      ),
-                    )
-                  }
-                  options={[
-                    ["overhead", "Fixed overhead"],
-                    ["direct", "Already attributed directly — exclude"],
-                    ["variable", "Other variable cost per sold unit"],
-                  ]}
-                />
-                <S
-                  label="Expense period"
-                  value={e.period}
-                  onChange={(v) => put("period", v)}
-                  options={
-                    e.attribution === "variable"
-                      ? [["unit", "Per sold unit"]]
-                      : [
-                          ["monthly", "Monthly"],
-                          ["annual", "Annual"],
-                        ]
-                  }
-                />
-                <N
-                  label="Expense amount (£)"
-                  value={e.amount}
-                  onChange={(v) => put("amount", v)}
-                />
-                <N
-                  label="Expense VAT (%)"
-                  value={e.vatPercent}
-                  onChange={(v) => put("vatPercent", v)}
-                />
-                <C
-                  label="Expense includes VAT"
-                  value={e.includesVat}
-                  onChange={(v) => put("includesVat", v)}
-                />
-              </div>
-              <p>
-                {e.attribution === "direct"
-                  ? "Excluded from additional costs"
-                  : `${money(e.amount / (e.period === "annual" ? 12 : 1))} ${e.period === "unit" ? "per unit" : "per month"} before VAT recovery adjustment`}
-              </p>
-              <button
-                className="secondary"
-                onClick={() =>
-                  field(
-                    "expenses",
-                    b.expenses.filter((x) => x.id !== e.id),
-                  )
-                }
-              >
-                Remove expense
-              </button>
-            </fieldset>
-          );
-        })}
-        <button
-          className="secondary"
-          onClick={() =>
-            field("expenses", [
-              ...b.expenses,
-              {
-                id: crypto.randomUUID(),
-                name: "New expense",
-                category: "Other",
-                amount: 0,
-                period: "monthly",
-                attribution: "overhead",
-                vatPercent: 0,
-                includesVat: true,
-              },
-            ])
-          }
-        >
-          Add expense
-        </button>
-      </details>
-      <details>
-        <summary>Staffing & owner time</summary>
-        <p className="help">
-          The monthly staffing budget is a floor: direct paid labour already
-          included in forecast products is deducted before adding remaining
-          payroll overhead. Owner time stays separate from operating profit.
-          Weekly hours use 52 ÷ 12 weeks per month.
+          Enter the total paid staff time you budget for each week. Paid labour
+          already included in direct costs is deducted so it is not counted
+          twice. Owner time stays separate. Weekly pay assumes 52 weeks a year;
+          trading weeks affect sales, not this annual staffing budget.
         </p>
         <div className="form-grid">
           <N
@@ -435,7 +457,7 @@ export function BusinessFields({
         </p>
       </details>
       <details>
-        <summary>Sales channels & commissions</summary>
+        <summary>Selling platforms</summary>
         <p className="help">
           Enter your own contract assumptions. Zero defaults are unconfigured,
           not advertised platform rates. Prices entered per product are customer
@@ -451,11 +473,34 @@ export function BusinessFields({
           return (
             <fieldset key={c.id}>
               <legend>{c.name}</legend>
+              <p className="help">
+                {(c.commissionConfigured ?? c.commissionPercent !== 0)
+                  ? `Commission confirmed: ${c.commissionPercent}%`
+                  : "Commission not yet configured"}
+              </p>
+              <C
+                label={`${c.name} commission confirmed (including zero)`}
+                value={c.commissionConfigured ?? c.commissionPercent !== 0}
+                onChange={(v) => put("commissionConfigured", v)}
+              />
               <div className="form-grid">
                 <N
                   label={`${c.name} commission (%)`}
                   value={c.commissionPercent}
-                  onChange={(v) => put("commissionPercent", v)}
+                  onChange={(v) =>
+                    field(
+                      "channels",
+                      b.channels.map((x, j) =>
+                        j === i
+                          ? {
+                              ...x,
+                              commissionPercent: v,
+                              commissionConfigured: true,
+                            }
+                          : x,
+                      ),
+                    )
+                  }
                 />
                 <N
                   label={`${c.name} fee VAT (%)`}
@@ -482,7 +527,7 @@ export function BusinessFields({
         })}
       </details>
       <details>
-        <summary>VAT & overhead allocation</summary>
+        <summary>Advanced: VAT & overhead allocation</summary>
         <C
           label="Business is VAT registered"
           value={b.vatRegistered}
@@ -517,33 +562,54 @@ export function BusinessFields({
         </p>
         <p className="help">
           Product-specific output treatment and input recovery limits are
-          configured in Money → Product profitability. Recovery uses the lower
-          of business and product limits. Set partial/exempt recovery
-          explicitly; this app does not calculate a partial-exemption method.
-          Existing financial planner scenarios keep their own saved assumptions
-          and are never added to these expenses.
+          configured in Settings → Product pricing. Recovery uses the lower of
+          business and product limits. Set partial/exempt recovery explicitly;
+          this app does not calculate a partial-exemption method. Historical
+          scenarios remain available for reference; the current forecast uses
+          these business settings.
         </p>
       </details>
     </div>
   );
 }
-export function BusinessEditor({ initial }: { initial: Business }) {
+export function BusinessEditor({
+  initial,
+  state,
+  initialGroup = "",
+}: {
+  initial: Business;
+  state: State;
+  initialGroup?: string;
+}) {
   const [b, set] = useState(initial);
+  const root = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!initialGroup) return;
+    const summary = [...(root.current?.querySelectorAll("summary") ?? [])].find(
+      (s) => s.textContent === initialGroup,
+    );
+    if (summary?.parentElement instanceof HTMLDetailsElement) {
+      summary.parentElement.open = true;
+      summary.scrollIntoView({ block: "start" });
+    }
+  }, [initialGroup]);
   const save = useAutoSave(b, set, "/business");
   const [history, H] = useState<{ settings: Business; recordedAt: string }[]>(
     [],
   );
   const [error, E] = useState("");
   return (
-    <section className="panel">
+    <section ref={root} className="panel">
       <h2>Business settings</h2>
       <p>
-        Shared by the product profitability catalogue. Ordinary edits autosave;
-        each revision is retained. A future effective date schedules new
-        assumptions; older effective periods remain available.
+        These settings feed Financial Overview and Price Breakdown. Ordinary
+        edits autosave; each revision is retained. A future effective date
+        schedules new assumptions; older effective periods remain available.
       </p>
       <SaveStatus save={save} />
       <BusinessFields value={b} change={set} />
+      <ForecastSettings b={b} set={set} state={state} />
+      <SavedForecasts state={state} />
       <details>
         <summary
           onClick={() =>
@@ -574,7 +640,13 @@ export function BusinessEditor({ initial }: { initial: Business }) {
     </section>
   );
 }
-export default function BusinessSettings() {
+export default function BusinessSettings({
+  state,
+  initialGroup,
+}: {
+  state: State;
+  initialGroup?: string;
+}) {
   const [b, B] = useState<Business>();
   const [e, E] = useState("");
   useEffect(() => {
@@ -585,7 +657,11 @@ export default function BusinessSettings() {
   return (
     <>
       <ErrorBox error={e} />
-      {b ? <BusinessEditor initial={b} /> : <p className="shell-caption">Loading business settings…</p>}
+      {b ? (
+        <BusinessEditor initial={b} state={state} initialGroup={initialGroup} />
+      ) : (
+        <p className="shell-caption">Loading business settings…</p>
+      )}
     </>
   );
 }

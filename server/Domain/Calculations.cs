@@ -96,7 +96,8 @@ public static class Costing
             Guard.Require(s.Channels.Count<=20 && s.Channels.Sum(c=>c.SharePercent)==100,"Sales-channel shares must total 100%.");
             foreach(var c in s.Channels) { Guard.Text(c.Name,"Channel name"); Guard.Amount(c.SharePercent,"Channel share",100); Guard.Amount(c.CommissionPercent,"Channel commission",100); Guard.Amount(c.VatPercent,"Channel fee VAT",100); }
         }
-        var days = s.OpenDays.Count * 52m / 12;
+        Guard.Require(s.TradingWeeks>0 && s.TradingWeeks<=52,"Planned trading weeks must be greater than zero and at most 52.");
+        var days = s.OpenDays.Count * s.TradingWeeks / 12;
         var orders = days * s.OrdersPerEvening;
         var grossPer = s.AverageBasket * (1 - s.DiscountPercent / 100);
         var netPer = s.VatRegistered ? grossPer / (1 + s.SalesVatPercent / 100) : grossPer;

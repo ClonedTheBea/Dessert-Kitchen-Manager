@@ -26,7 +26,7 @@ public record Scenario(string Id, int Revision, string Name, List<Expense> Expen
     bool VatRegistered, decimal SalesVatPercent, decimal DiscountPercent, decimal OrdersPerEvening,
     decimal OwnerHoursWeekly, decimal OwnerHourlyRate, decimal InitialInvestment, int RecoveryMonths,
     decimal TargetProfit, List<ChannelAssumption>? Channels = null, decimal StaffHoursWeekly = 0,
-    decimal StaffHourlyRate = 0, decimal EmployerCostPercent = 0, decimal OtherChargePerOrder = 0);
+    decimal StaffHourlyRate = 0, decimal EmployerCostPercent = 0, decimal OtherChargePerOrder = 0, decimal TradingWeeks = 52);
 public record ChannelAssumption(string Name, decimal SharePercent, decimal CommissionPercent, decimal VatPercent);
 public record FinancialModel(decimal MonthlyOpenDays, decimal MonthlyOrders, decimal GrossSales,
     decimal SalesVat, decimal NetSales, decimal VariableCosts, decimal Commission, decimal CommissionVat,

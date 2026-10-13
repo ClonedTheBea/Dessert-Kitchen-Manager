@@ -1,3 +1,4 @@
+import { seedForecast } from "./financialFixtures";
 import { test, expect, type Page } from "@playwright/test";
 
 import { login, navigate } from "./login";
@@ -288,41 +289,33 @@ test("planner sections, staffing, sales-channel mix, comparisons and mobile resu
   page,
 }) => {
   await login(page);
-  await navigate(page, "Financial planner");
-  await expect(
-    page.getByRole("region", { name: "Financial results" }),
-  ).toContainText("£8.44");
-  await page.getByRole("button", { name: "Duplicate scenario" }).click();
-  await page.getByLabel("Scenario name").fill("Staffing browser scenario");
-  await page
-    .getByText("Staffing and owner time", { exact: false })
-    .first()
-    .click();
-  await page
-    .getByLabel("Paid staff hours per week", { exact: true })
-    .fill("10");
-  await page.getByLabel("Staff hourly wage (£)", { exact: true }).fill("12");
+  await seedForecast(page);
+  await navigate(page, "Money");
+  await expect(page.locator(".planner-quick-results")).toContainText("£8.44");
+  await navigate(page, "Settings");
+  await page.getByText("Staff and labour", { exact: true }).click();
+  await page.getByLabel("Total staff hours / week", { exact: true }).fill("10");
+  await page.getByLabel("Staff hourly rate (£)", { exact: true }).fill("12");
   await page
     .getByLabel("Employer cost allowance (%)", { exact: true })
     .fill("20");
+  await page.getByText("Forecast assumptions", { exact: true }).click();
   await page
-    .getByText("Delivery platform costs", { exact: false })
-    .first()
+    .getByLabel("Uber Eats order share (%)", { exact: true })
+    .fill("50");
+  await page.getByLabel("Direct order share (%)", { exact: true }).fill("50");
+  await expect(page.locator(".save-status")).toContainText("Saved");
+  await page
+    .getByText("Advanced: compare forecasts & actual production costs", {
+      exact: true,
+    })
     .click();
-  await page.getByLabel("Model sales-channel mix").check();
-  await page.getByLabel("Channel 2 name", { exact: true }).fill("Direct");
-  await page.getByLabel("Channel 2 commission (%)", { exact: true }).fill("0");
-  await page
-    .getByText("Compare scenarios & actual production costs", { exact: true })
-    .click();
-  await page
-    .getByRole("combobox", { name: "Compare scenario" })
-    .selectOption("baseline");
+  await page.getByRole("button", { name: "Prepare current forecast" }).click();
+  await page.getByLabel("Compare scenario").selectOption("baseline");
   await expect(page.locator(".comparison")).toContainText("£624.00");
   await expect(page.locator(".comparison")).toContainText(
     "Break-even incl. owner",
   );
-  await expect(page.locator("main > .save-status")).toContainText("Saved");
   await page.screenshot({
     path: "test-results/sprint11-planner-desktop.png",
     fullPage: true,

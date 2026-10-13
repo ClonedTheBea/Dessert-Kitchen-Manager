@@ -149,16 +149,18 @@ test("mutable records validate, autosave, preserve conflicts and flush page navi
   page,
 }) => {
   await login(page);
-  await navigate(page, "Financial planner");
-  await page.getByRole("button", { name: "Duplicate scenario" }).click();
-  await page.getByLabel("Scenario name").fill("Autosave navigation test");
+  await navigate(page, "Settings");
+  await page
+    .getByLabel("Business configuration name")
+    .fill("Autosave navigation test");
   await navigate(page, "Ingredients");
   await expect(
     page.getByRole("button", { name: "Suppliers", exact: true }),
   ).toBeVisible();
   let s = await (await page.request.get("/api/state")).json();
   expect(
-    s.scenarios.some((s: any) => s.name === "Autosave navigation test"),
+    (await (await page.request.get("/api/business")).json()).name ===
+      "Autosave navigation test",
   ).toBeTruthy();
   await page.getByRole("button", { name: "Cream cheese", exact: true }).click();
   await page.getByLabel("Ingredient name").fill("");

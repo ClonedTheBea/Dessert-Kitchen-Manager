@@ -1,3 +1,4 @@
+import { seedForecast } from "./financialFixtures";
 import { navigate } from "./login";
 import { test, expect } from "@playwright/test";
 
@@ -107,25 +108,42 @@ test("owner setup, catalogue, quotes, recipe costing, versions, scenarios and ba
     "1500",
   );
   await page.getByRole("button", { name: "Publish recipe version" }).click();
-  await navigate(page, "Financial planner");
-  await expect(page.locator(".forecast-hero")).toContainText("£1,550.87");
-  await page.getByRole("button", { name: "Duplicate scenario" }).click();
-  await page.getByLabel("Scenario name").fill("Higher basket test");
-  await page.getByLabel("Average order value (£)", { exact: true }).fill("25");
-  await expect(page.locator(".forecast-hero")).toContainText("£2,438.33");
-  await expect(page.locator("main > .save-status")).toContainText("Saved");
+  await seedForecast(page);
+  await navigate(page, "Money");
+  await expect(page.locator(".planner-quick-results")).toContainText(
+    "£1,550.87",
+  );
+  await navigate(page, "Settings");
+  await page.getByText("Forecast assumptions", { exact: true }).click();
   await page
-    .getByText("Compare scenarios & actual production costs", { exact: true })
+    .getByLabel("Average order value (£ including sales VAT)", { exact: true })
+    .fill("25");
+  await expect(page.locator(".save-status")).toContainText("Saved");
+  await page
+    .getByText("Advanced: compare forecasts & actual production costs", {
+      exact: true,
+    })
     .click();
+  await page.getByRole("button", { name: "Prepare current forecast" }).click();
+  await page.getByLabel("Snapshot name").fill("Higher basket test");
+  await page.getByRole("button", { name: "Save forecast snapshot" }).click();
+  await expect(
+    page.getByText("Forecast snapshot saved. Active settings unchanged."),
+  ).toBeVisible();
   await page
     .getByLabel("Compare scenario")
     .selectOption({ label: "Opening plan" });
   await expect(page.locator(".comparison")).toContainText("£1,550.87");
+  await navigate(page, "Money");
+  await expect(page.locator(".planner-quick-results")).toContainText(
+    "£2,438.33",
+  );
   await page.screenshot({
     path: "test-results/planner-desktop.png",
     fullPage: true,
   });
   await page.getByRole("button", { name: "Settings & backups" }).click();
+  await page.getByRole("button", { name: "Backups", exact: true }).click();
   const download = page.waitForEvent("download");
   await page.getByRole("link", { name: "Download database backup" }).click();
   expect((await download).suggestedFilename()).toMatch(

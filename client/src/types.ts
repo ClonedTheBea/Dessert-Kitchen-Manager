@@ -96,6 +96,7 @@ export type Version = {
   allergenSnapshot?: AllergenAssessment | null;
 };
 export type Scenario = {
+  tradingWeeks?: number;
   id: string;
   revision: number;
   name: string;

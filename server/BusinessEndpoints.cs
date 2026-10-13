@@ -5,6 +5,8 @@ public static class BusinessEndpoints
 {
     public static void MapBusiness(this RouteGroupBuilder api, Store store, object gate)
     {
+        api.MapGet("/financial/overview",(DateOnly? date)=>{lock(gate)return store.Overview(date??AllergenRules.Today());});
+        api.MapPost("/financial/breakdown",(BreakdownRequest request)=>{lock(gate)return store.Breakdown(request);});
         api.MapGet("/business", () => store.CurrentBusiness());
         api.MapGet("/business/history", () => store.BusinessHistory());
         api.MapPost("/business", (BusinessSettings input) => { lock (gate) return store.SaveBusiness(input); });

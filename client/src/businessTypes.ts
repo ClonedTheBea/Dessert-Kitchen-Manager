@@ -1,5 +1,6 @@
-import type { Recipe, RecipeLine } from "./types";
+import type { Recipe, RecipeLine, Scenario } from "./types";
 export type Tariff = {
+  rateConfigured?: boolean | null;
   kind: string;
   pencePerUnit: number;
   standingPenceDaily: number;
@@ -24,6 +25,7 @@ export type BusinessExpense = {
   includesVat: boolean;
 };
 export type Channel = {
+  commissionConfigured?: boolean | null;
   id: string;
   name: string;
   commissionPercent: number;
@@ -32,6 +34,7 @@ export type Channel = {
   commissionBasis: string;
 };
 export type ProductPlan = {
+  energyConfirmed?: boolean | null;
   recipeId: string;
   channels: { channelId: string; price: number; monthlyUnits: number }[];
   outputVatPercent: number;
@@ -43,6 +46,11 @@ export type ProductPlan = {
   labourMinutesPerBatch: number;
 };
 export type Business = {
+  forecast?: Scenario | null;
+  forecastShares?: Record<string, number> | null;
+  forecastReviewed?: boolean;
+  itemsPerOrder?: number;
+  directLabourPerOrder?: number;
   id: string;
   revision: number;
   name: string;

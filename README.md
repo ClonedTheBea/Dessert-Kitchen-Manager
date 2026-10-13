@@ -1,6 +1,6 @@
 # Dessert Kitchen Manager
 
-A private Windows app for recipes, stock and dessert-kitchen planning. **Sprint 2.1 UX & Visual Redesign is ready for owner review.** Home, Recipes, Stock and Money share an Apiary-derived plum shell and light content cards. See the [redesign handover, screenshots and acceptance checklist](docs/SPRINT-2.1.md). The backend calculations and stock ledger are preserved. Sprint 3 has not begun.
+A private Windows app for recipes, stock and dessert-kitchen planning. **The Financial UX Redesign is ready for owner review.** Home, Recipes, Stock and Money share an Apiary-derived plum shell and light content cards. See the [financial UX handover, screenshots and acceptance checklist](docs/FINANCIAL-UX.md). The backend calculations and stock ledger are preserved. Sprint 3 has not begun.
 
 ## Start
 
@@ -25,7 +25,7 @@ Open **http://127.0.0.1:5080**. Create your owner password (12+ characters) on f
 3. Use **Recipes → Ingredients → Update price** for a later quote. Previous prices remain in the expandable history.
 4. Open **Recipes → Create a recipe**. Set the yield and ingredients, including packaging. Use **Method** for numbered preparation steps.
 5. Use **Cost & pricing** to inspect calculated costs and selling-price assumptions. **Publish recipe version** creates the immutable snapshot; ordinary edits only update the working draft.
-6. Open **Money** for contribution, break-even and projected profit first; expand assumptions and comparisons as needed. Scenario edits autosave.
+6. Enter assumptions in **Settings → Business Settings**. Open **Money → Financial Overview** for read-only results; search a dessert to open **Price Breakdown**. Permanent prices and advanced saved pricing scenarios live in **Settings → Product pricing**.
 
 Owner hours (20/week), desired pay (£12/hour), orders (20/evening), investment (£5,000) and recovery period (24 months) are additional editable sample assumptions, not business facts.
 
@@ -101,4 +101,4 @@ Known limits and scheduled work:
 
 Current usability handover: [Sprint 2.1.1](docs/SPRINT-2.1.1.md), including household stock, grouped inventory, shortage recovery, validation and the manual acceptance checklist.
 
-Business settings and product profitability are available in Money and Settings. See the [accounting methods, validation and acceptance checklist](docs/BUSINESS-PROFITABILITY.md). Sprint 3 remains pending acceptance.
+Business Settings now holds the editable assumptions; Financial Overview shows results and Price Breakdown explains each product price. See the [Financial UX handover](docs/FINANCIAL-UX.md) and the [underlying accounting methods](docs/BUSINESS-PROFITABILITY.md). Sprint 3 remains pending acceptance.
