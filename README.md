@@ -100,3 +100,5 @@ Known limits and scheduled work:
 - Sample recipes, allergens and storage notes are illustrative. Verify actual recipes and supplier specifications before production.
 
 Current usability handover: [Sprint 2.1.1](docs/SPRINT-2.1.1.md), including household stock, grouped inventory, shortage recovery, validation and the manual acceptance checklist.
+
+Business settings and product profitability are available in Money and Settings. See the [accounting methods, validation and acceptance checklist](docs/BUSINESS-PROFITABILITY.md). Sprint 3 remains pending acceptance.

@@ -116,7 +116,7 @@ export default function Inventory({
 
   if (!stock)
     return (
-      <>
+      <section className="panel">
         <h1>Your kitchen stock</h1>
 
         <ErrorBox error={error} />
@@ -124,7 +124,7 @@ export default function Inventory({
         <p>Loading inventory…</p>
 
         <button onClick={() => run(refresh)}>Retry</button>
-      </>
+      </section>
     );
 
   const loc = stock.locations.find((l) => l.id === location)!;

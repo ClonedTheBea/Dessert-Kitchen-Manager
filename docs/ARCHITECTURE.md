@@ -53,3 +53,10 @@ The only backend additions are an authenticated, read-only `/prices/preview` end
 ## Sprint 2.1.1 existing stock and valuation
 
 `ExistingStockInput` posts through the same immutable inventory transaction and draft-confirmation machinery as purchases/production. Additive JSON fields retain provenance, prepared date and valuation status; no SQL migration is needed. `StockLot.UnitCost`, movement/balance values and production actual costs are nullable. Any unknown-cost allocation makes the actual production total unknown; estimated inputs retain estimated status. Old serialized lots default to known status. API consumers must preserve nullable actual costs rather than coalescing them to zero. Decimal arithmetic is unchanged. Historical receipts do not synthesize ingredient consumption or allergen evidence. See [the Sprint 2.1.1 handover](SPRINT-2.1.1.md).
+
+
+## Business settings and profitability
+
+`BusinessSettings` and the per-product plans share the `documents` persistence service. Autosaves atomically update the current `business` document, append an immutable `business-version` document and audit the revision, with compare-and-swap protection and identical retry handling. Effective-date selection does not rewrite older snapshots. No SQL migration is added.
+
+`Store.Profitability` uses `Costing.Recipe`, supplier prices, published recipes and unit conversion for refreshed estimates. It separates nested packaging/labour, applies explicit VAT-recovery assumptions, calculates equipment energy, reconciles fixed-cost allocation and handles the payroll floor. Actual batch data is read from unreversed stock operations without revaluation. Pricing scenarios are immutable input/result documents of kind `profit-scenario`; preview has no writes. A separate explicit import creates an ordinary planner scenario with a documented one-unit-per-order convention. Existing planner models and calculations remain unchanged. See [the business profitability handover](BUSINESS-PROFITABILITY.md) for formulas and limits.

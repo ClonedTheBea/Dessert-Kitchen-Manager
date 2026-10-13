@@ -98,10 +98,12 @@ for (const width of [1440, 390])
     await review("stock");
     await navigate(page, "Home");
     await page.getByRole("button", { name: /Record purchase Put/ }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
     await review("purchase");
     await page.getByRole("button", { name: "Close dialog" }).click();
     await navigate(page, "Home");
     await page.getByRole("button", { name: /Make a batch From/ }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
     await review("production");
     await page.getByRole("button", { name: "Close dialog" }).click();
     await navigate(page, "Money");

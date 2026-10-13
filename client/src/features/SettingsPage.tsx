@@ -1,3 +1,4 @@
+import BusinessSettings from "./BusinessSettings";
 import { Download, ShieldCheck } from "lucide-react";
 import type { State } from "../types";
 
@@ -11,6 +12,7 @@ export default function SettingsPage({ state }: { state: State }) {
           <p>Your business data stays with you.</p>
         </div>
       </div>
+      <BusinessSettings />
       <div className="bottom-grid">
         <section className="panel">
           <span className="soft-icon">
@@ -63,8 +65,9 @@ export default function SettingsPage({ state }: { state: State }) {
       <section className="panel roadmap">
         <h2>A foundation you can grow with</h2>
         <p>
-          Sprint 1.1 supports planning, recipe testing and documented allergen reviews. Later modules are
-          intentionally not shown as working business data.
+          Sprint 1.1 supports planning, recipe testing and documented allergen
+          reviews. Later modules are intentionally not shown as working business
+          data.
         </p>
         <div className="roadmap-grid">
           {[
@@ -77,7 +80,7 @@ export default function SettingsPage({ state }: { state: State }) {
             [
               "02",
               "Inventory & production",
-              "Next milestone",
+              "Available now",
               "Purchases, lots, stocktakes, waste and finished-product stock.",
             ],
             [

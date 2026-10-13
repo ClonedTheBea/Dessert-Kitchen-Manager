@@ -997,3 +997,23 @@ main:focus {
     padding: 12px;
   }
 }
+
+/* Business planning keeps the shared shell, controls and light surfaces. */
+.business-fields fieldset,.product-fields fieldset { min-width:0; border:1px solid var(--border); border-radius:var(--radius-card); padding:var(--space-4); margin:var(--space-4) 0; }
+.business-fields legend,.product-fields legend {font-weight:650; padding:0 var(--space-2)}
+.profit-summary {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-3);margin:var(--space-4) 0}
+.profit-summary section {background:var(--surface-raised);padding:var(--space-4);border:1px solid var(--border);border-radius:var(--radius-card)}
+.profit-summary strong {display:block;font-size:1.25rem;margin-top:var(--space-2);color:var(--accent)}
+.financial-term {position:relative; border-bottom:1px dotted var(--text-muted);cursor:help}
+.financial-term [role=tooltip] {display:none;position:absolute;left:0;top:100%;width:min(310px,70vw);padding:var(--space-3);background:var(--accent);color:var(--shell-text);border-radius:var(--radius-control);z-index:20;box-shadow:var(--shadow);font-weight:400;font-size:.9rem}
+.financial-term[data-open="true"] [role=tooltip] {display:block}
+.cost-bar-row {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-2);margin:var(--space-4) 0}
+.cost-track {background:var(--surface-soft);height:9px;border-radius:9px;overflow:hidden;grid-column:1/-1}
+.cost-track span {display:block;height:100%;background:var(--accent)}
+.cost-track span.negative {background:var(--danger)}
+.cost-bar-row small {grid-column:1/-1}.glossary>div {padding:var(--space-4) 0;border-bottom:1px solid var(--border)}.glossary dt{font-weight:700}.glossary dd{margin:var(--space-2) 0}
+@media(max-width:640px){.profit-summary{grid-template-columns:1fr}.business-fields .form-grid,.product-fields .form-grid{grid-template-columns:1fr}}
+
+@media(max-width:640px){.financial-term [role=tooltip]{position:fixed;left:16px;right:16px;bottom:16px;top:auto;width:auto}}
+
+.profitability-product{margin-block:var(--space-5)}

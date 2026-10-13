@@ -1,3 +1,4 @@
+import { Term } from "./FinancialGlossary";
 import { ChartNoAxesCombined, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAutoSave, SaveStatus } from "../autoSave";
@@ -10,14 +11,20 @@ import ScenarioComparison from "./ScenarioComparison";
 import { ErrorBox, clone, type Notify } from "../components/ui";
 export default function Planner({
   state,
+  initialId,
   refresh,
   notify: _notify,
 }: {
   state: State;
+  initialId?: string;
   refresh: () => Promise<void>;
   notify: Notify;
 }) {
-  const [draft, setDraft] = useState(clone(state.scenarios[0]));
+  const [draft, setDraft] = useState(
+    clone(
+      state.scenarios.find((s) => s.id === initialId) ?? state.scenarios[0],
+    ),
+  );
   const autosave = useAutoSave(draft, setDraft, "/scenarios");
   const [model, setModel] = useState<Model>();
   const [error, setError] = useState("");
@@ -122,7 +129,9 @@ export default function Planner({
           <div>
             <small>How much do I make per order?</small>
             <strong>{money(model.contributionPerOrder)}</strong>
-            <span>Contribution after variable costs and fees</span>
+            <span>
+              <Term name="Contribution" /> after variable costs and fees
+            </span>
           </div>
           <div>
             <small>How many orders must I sell?</small>

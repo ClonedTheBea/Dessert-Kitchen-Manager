@@ -21,7 +21,7 @@ import Inventory from "./features/Inventory";
 import Ingredients from "./features/Ingredients";
 import Login from "./features/Login";
 import Home from "./features/Home";
-import Planner from "./features/Planner";
+import MoneyWorkspace from "./features/MoneyWorkspace";
 import Recipes from "./features/Recipes";
 import SettingsPage from "./features/SettingsPage";
 
@@ -252,7 +252,11 @@ export default function App() {
                 />
               )}
               {page === "Financial planner" && (
-                <Planner state={state} refresh={refresh} notify={setToast} />
+                <MoneyWorkspace
+                  state={state}
+                  refresh={refresh}
+                  notify={setToast}
+                />
               )}
               {page === "Inventory" && (
                 <Inventory key={navSeq} initialAction={action} state={state} />
