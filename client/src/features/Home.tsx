@@ -69,6 +69,7 @@ export default function Home({
       )
       .slice(0, 3) ?? [];
   const tasks = [
+    {label:"New Order",note:"Add desserts to a basket",page:"Financial planner",action:"new-order",icon:ShoppingBasket},
     {
       label: "Add ingredient",
       note: "Supplier and price together",

@@ -21,7 +21,7 @@ import Inventory from "./features/Inventory";
 import Ingredients from "./features/Ingredients";
 import Login from "./features/Login";
 import Home from "./features/Home";
-import MoneyWorkspace from "./features/MoneyWorkspace";
+import MoneyWorkspace from "./features/MoneyHub";
 import Recipes from "./features/Recipes";
 import SettingsPage from "./features/SettingsPage";
 

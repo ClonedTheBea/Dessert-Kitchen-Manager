@@ -1,0 +1,11 @@
+namespace DessertKitchen.Domain;
+public record OrderItemInput(string RecipeId,decimal Quantity,decimal? Price=null);
+public record OrderInput(string OperationId,string Id,int Revision,string ChannelId,List<OrderItemInput> Items,decimal Discount=0,string Notes="",string Reference="",bool Confirm=true);
+public record SaleLine(string RecipeId,int Version,string Name,decimal Quantity,decimal Price,decimal Gross,decimal Discount,decimal? OutputVat,decimal? EstimatedRecipeCost,decimal? InventoryCost=null,string CostStatus="estimated",List<StockAllocation>? Allocations=null);
+public record SaleOrder(string Id,string Number,int Revision,string RecordedAt,string ChannelId,string Channel,string Reference,string Status,string PaymentStatus,string PaymentMethod,List<SaleLine> Lines,decimal Gross,decimal Discount,decimal Total,decimal? OutputVat,decimal? ExpectedFees,decimal FeeVat,decimal InputRecoveryPercent,int SettingsRevision,string Notes,bool FinancialOnly=false,decimal Refunds=0,decimal Adjustments=0,decimal? ReportedFees=null,decimal OtherFees=0,decimal? ReportedNet=null,string Source="manual",SalesChannel? ChannelSnapshot=null);
+public record OrderAction(string OperationId,string Id,int Revision,string Action,string LocationId="",Dictionary<string,string>? ProductionLinks=null,decimal Amount=0,string Method="",string Reason="");
+public record PayoutInput(string Id,string ChannelId,string Reference,DateOnly Date,List<string> OrderIds,decimal Actual,decimal? Commission=null,decimal OtherFees=0,decimal Refunds=0,decimal Adjustments=0,string Notes="",string? Corrects=null);
+public record PayoutRecord(PayoutInput Input,string RecordedAt,decimal? Expected,decimal? Difference,string Status,List<SaleOrder>? OrderSnapshots=null);
+public record CsvMap(string Id,string Name,Dictionary<string,string> Columns);
+public record SalesImportInput(string OperationId,string ChannelId,string Csv,Dictionary<string,string> Columns,bool Confirm=false);
+public record ImportRow(int Row,string Reference,string Status,string Message,SaleOrder? Order);

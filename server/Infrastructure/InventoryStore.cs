@@ -122,7 +122,7 @@ public sealed partial class Store
     },draft);
     public List<StockMovement> ReverseStock(ReverseInput input,string actor="owner")=>InventoryPost("reversal",input.OperationId,input,actor,ctx=>
     {
-        Guard.Text(input.Reason,"Correction reason",2000);var original=StockOperations().FirstOrDefault(o=>o.Id==input.OriginalId)??throw new ValidationException("Operation not found.");Guard.Require(original.Type is not "reversal" and not "date-review","A reversal cannot itself be reversed; record a new explained adjustment.");
+        Guard.Text(input.Reason,"Correction reason",2000);var original=StockOperations().FirstOrDefault(o=>o.Id==input.OriginalId)??throw new ValidationException("Operation not found.");Guard.Require(original.Type is not "sale-fulfilment", "Sale fulfilment cannot be reversed. Record an explained stock adjustment separately from any refund.");using(var sales=Open())using(var linked=Command(sales,null,"SELECT count(*) FROM sales_production_links WHERE production_id=$id",("$id",input.OriginalId)))Guard.Require((long)linked.ExecuteScalar()! ==0,"Production linked to a fulfilled order cannot be reversed. Record an explained stock adjustment instead.");Guard.Require(original.Type is not "reversal" and not "date-review","A reversal cannot itself be reversed; record a new explained adjustment.");
         foreach(var old in ctx.Moves.Where(m=>m.OperationId==input.OriginalId).Reverse().ToList())ctx.Move(ctx.Lot(old.LotId),old.LocationId,-old.Quantity,"reversal",AllergenRules.Today(),input.Reason+"; reverses "+input.OriginalId);
         return ctx.NewMoves.ToList();
     },reverses:input.OriginalId);

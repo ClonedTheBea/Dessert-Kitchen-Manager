@@ -1423,3 +1423,20 @@ main:focus {
 .running-cost-row { border: 1px solid var(--border); padding: 16px; margin-bottom: 16px; border-radius: 10px; }
 
 .running-cost-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+.till-layout { display:grid;grid-template-columns:1.2fr 1fr;gap:24px; }
+.order-list {display:grid;gap:12px;margin-top:20px;}
+.order-list button {display:grid;gap:8px;text-align:left;white-space:normal;}
+.till-layout .dessert-results {grid-template-columns:repeat(2,minmax(0,1fr));}
+@media(max-width:760px){.till-layout {grid-template-columns:1fr;} .till-layout .actions {flex-wrap:wrap;} }
+
+.order-match-list{display:grid;gap:12px;max-height:300px;overflow:auto;margin:16px 0;}
+nav[aria-label="Money workspace"]{display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;margin-bottom:24px;}
+
+.money-tabs button { width: auto; flex: 0 1 auto; padding: 10px 14px; }
+.money-tabs button[aria-pressed="true"] { background:var(--surface); color:var(--text); border:2px solid var(--brand-pink); }
+.till-layout .dessert-results button { white-space:normal; overflow-wrap:anywhere; min-width:0; }
+.till-layout > div { min-width:0; }
+@media(max-width:760px){.till-layout .dessert-results{grid-template-columns:1fr;} .money-tabs button{font-size:13px;padding:10px;} }
+
+.sales-report > .panel, .sales-report > .financial-cards { margin-bottom:24px; }

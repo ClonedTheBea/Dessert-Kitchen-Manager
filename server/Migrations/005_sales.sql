@@ -1,0 +1,10 @@
+CREATE TABLE sales_orders(id TEXT PRIMARY KEY, channel TEXT NOT NULL, reference TEXT, revision INTEGER NOT NULL, body TEXT NOT NULL);
+CREATE UNIQUE INDEX sales_provider_reference ON sales_orders(channel,reference) WHERE reference IS NOT NULL;
+CREATE TABLE sales_events(id TEXT PRIMARY KEY, order_id TEXT NOT NULL, occurred_at TEXT NOT NULL, hash TEXT NOT NULL, body TEXT NOT NULL, result TEXT NOT NULL);
+CREATE TABLE sales_production_links(production_id TEXT PRIMARY KEY,order_id TEXT NOT NULL);
+CREATE TABLE sales_payouts(id TEXT PRIMARY KEY,reference TEXT NOT NULL,channel TEXT NOT NULL,body TEXT NOT NULL,UNIQUE(channel,reference));
+CREATE TABLE sales_imports(id TEXT PRIMARY KEY,body TEXT NOT NULL);
+CREATE TRIGGER sales_events_no_update BEFORE UPDATE ON sales_events BEGIN SELECT RAISE(ABORT,'Sales history is immutable'); END;
+CREATE TRIGGER sales_events_no_delete BEFORE DELETE ON sales_events BEGIN SELECT RAISE(ABORT,'Sales history is immutable'); END;
+CREATE TRIGGER sales_payouts_no_update BEFORE UPDATE ON sales_payouts BEGIN SELECT RAISE(ABORT,'Payouts are immutable; add a correction'); END;
+CREATE TRIGGER sales_payouts_no_delete BEFORE DELETE ON sales_payouts BEGIN SELECT RAISE(ABORT,'Payouts are immutable'); END;

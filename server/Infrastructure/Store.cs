@@ -161,7 +161,8 @@ public sealed partial class Store
         Guard.Require(Path.GetFullPath(sourcePath) != Path.GetFullPath(destinationPath), "Choose a different backup file.");
         using var source = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = sourcePath, Mode = SqliteOpenMode.ReadOnly, Pooling = false }.ToString()); source.Open();
         using var check = Command(source, null, "PRAGMA integrity_check"); Guard.Require((string?)check.ExecuteScalar() == "ok", "Backup integrity check failed.");
-        using var schema = Command(source, null, "SELECT max(version) FROM schema_migrations"); var version=Convert.ToInt32(schema.ExecuteScalar()); Guard.Require(version is 1 or 2 or 3 or 4, "Unsupported backup schema version.");
+        using var schema = Command(source, null, "SELECT max(version) FROM schema_migrations"); var version=Convert.ToInt32(schema.ExecuteScalar()); Guard.Require(version is 1 or 2 or 3 or 4 or 5, "Unsupported backup schema version.");
+        if(version>=5)foreach(var table in new[]{"sales_orders","sales_events","sales_production_links","sales_payouts","sales_imports"}){using var checkTable=Command(source,null,$"SELECT count(*) FROM {table}");checkTable.ExecuteScalar();}
         if(version>=4)foreach(var table in new[]{"inventory_locations","inventory_operations","inventory_lots","inventory_movements","inventory_stocktakes"}){using var checkTable=Command(source,null,$"SELECT count(*) FROM {table}");checkTable.ExecuteScalar();}
         if(version>=3){using var drafts=Command(source,null,"SELECT count(*) FROM working_drafts");drafts.ExecuteScalar();}
         foreach (var table in new[] { "documents", "prices", "recipe_versions", "owner", "audit" })
