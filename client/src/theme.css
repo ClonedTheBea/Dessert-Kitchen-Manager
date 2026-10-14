@@ -67,3 +67,13 @@
   --muted: var(--text-muted);
   --cream: var(--surface-soft);
 }
+
+:root {
+  --cost-ingredients: #b85c0a;
+  --cost-packaging: #3479b3;
+  --cost-energy: #927600;
+  --cost-labour: #147d82;
+  --cost-fees: #cf5759;
+  --cost-vat: #8065ad;
+  --cost-contribution: #39814b;
+}

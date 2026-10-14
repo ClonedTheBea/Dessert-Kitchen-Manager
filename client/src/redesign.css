@@ -1415,3 +1415,11 @@ main:focus {
 .price-breakdown-inline .temporary-price input {
   width: 100%;
 }
+
+.financial-cards.planner-quick-results { position: static; top: auto; z-index: auto; }
+.product-pricing-workspace { display: grid; gap: 24px; }
+.product-chooser { max-height: 320px; overflow-y: auto; padding: 4px; }
+.product-chooser button[aria-pressed="true"] { border: 2px solid var(--accent); }
+.running-cost-row { border: 1px solid var(--border); padding: 16px; margin-bottom: 16px; border-radius: 10px; }
+
+.running-cost-fields { border: 0; padding: 0; margin: 0; min-width: 0; }

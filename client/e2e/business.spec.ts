@@ -179,7 +179,7 @@ for (const width of [1440, 390])
     await page
       .getByRole("button", { name: "Product pricing", exact: true })
       .click();
-    await page.getByLabel("Choose a product").selectOption(recipe.id);
+    await page.locator(".product-chooser").getByRole("button", { name: new RegExp(recipe.name) }).click();
     await page
       .getByRole("button", { name: "Edit saved product pricing", exact: true })
       .first()
@@ -215,7 +215,7 @@ for (const width of [1440, 390])
       .getByRole("button", { name: "Return to catalogue", exact: true })
       .click();
     // Reopening must initialise from the latest saved business revision.
-    await page.getByLabel("Choose a product").selectOption(recipe.id);
+    await page.locator(".product-chooser").getByRole("button", { name: new RegExp(recipe.name) }).click();
     await page
       .getByRole("button", { name: "Edit saved product pricing", exact: true })
       .first()
@@ -252,7 +252,7 @@ for (const width of [1440, 390])
     await page
       .getByRole("button", { name: "Product pricing", exact: true })
       .click();
-    await page.getByLabel("Choose a product").selectOption(recipe.id);
+    await page.locator(".product-chooser").getByRole("button", { name: new RegExp(recipe.name) }).click();
     const beforeBusiness = await (
       await page.request.get("/api/business")
     ).json();

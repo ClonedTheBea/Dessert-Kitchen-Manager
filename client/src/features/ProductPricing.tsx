@@ -19,6 +19,7 @@ export default function ProductPricing({
 }) {
   const [ctx, C] = useState<ProfitContext>();
   const [current, B] = useState<Business>();
+  const [search, Search] = useState("");
   const [id, I] = useState(initialId);
   const [mode, M] = useState(initialMode);
   const [advanced, ShowAdvanced] = useState(initialMode === "edit");
@@ -51,7 +52,7 @@ export default function ProductPricing({
     Q((n) => n + 1);
   };
   return (
-    <>
+    <div className="product-pricing-workspace">
       <section className="panel">
         <h2>Cost a dessert</h2>
         <p>
@@ -60,25 +61,46 @@ export default function ProductPricing({
           prices.
         </p>
         <label>
-          Choose a product
-          <select
-            value={id}
-            onChange={async (e) => {
-              const v = e.target.value;
-              if (await flushEdits()) {
-                I(v);
-                Q((n) => n + 1);
-              }
-            }}
-          >
-            <option value="">Choose a product</option>
-            {ctx?.recipes.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
+          Search products
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => Search(e.target.value)}
+            placeholder="Search desserts…"
+          />
         </label>
+        <div
+          className="dessert-results product-chooser"
+          aria-label="Choose a product"
+        >
+          {ctx?.recipes
+            .filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
+            .map((r) => (
+              <button
+                key={r.id}
+                className="secondary"
+                aria-pressed={id === r.id}
+                onClick={async () => {
+                  if (await flushEdits()) {
+                    I(r.id);
+                    Q((n) => n + 1);
+                  }
+                }}
+              >
+                {r.name}
+                <span>{id === r.id ? "Selected" : "Select dessert →"}</span>
+              </button>
+            ))}
+          {ctx &&
+            !ctx.recipes.some((r) =>
+              r.name.toLowerCase().includes(search.toLowerCase()),
+            ) && (
+              <p>
+                No matching products. Try another search or publish a sellable
+                recipe.
+              </p>
+            )}
+        </div>
         {recipe && (
           <div className="actions pricing-actions">
             {[
@@ -146,6 +168,6 @@ export default function ProductPricing({
             done={done}
           />
         ))}
-    </>
+    </div>
   );
 }

@@ -54,7 +54,7 @@ for (const width of [1440, 390])
     const brownie = state.recipes.find((v: any) =>
       v.recipe.name.toLowerCase().includes("brownie"),
     ).recipe;
-    await page.getByLabel("Choose a product").selectOption(brownie.id);
+    await page.locator(".product-chooser").getByRole("button", { name: new RegExp(brownie.name) }).click();
     await expect(
       page.getByRole("heading", { name: "What we know so far" }),
     ).toBeVisible();

@@ -1,6 +1,6 @@
 # Dessert Kitchen Manager
 
-A private Windows app for recipes, stock and dessert-kitchen planning. **The first-use usability repair is ready for owner review.** Home, Recipes, Stock and Money share an Apiary-derived plum shell and light content cards. See the [first-use handover and acceptance checklist](docs/FIRST-USE.md), which updates the earlier [financial UX handover](docs/FINANCIAL-UX.md). The backend calculations and stock ledger are preserved. Sprint 3 has not begun.
+A private Windows app for recipes, stock and dessert-kitchen planning. **The financial UX polish is ready for owner review.** Home, Recipes, Stock and Money share an Apiary-derived plum shell and light content cards. See the [latest screenshots and acceptance checklist](docs/FINANCIAL-POLISH.md), following the [first-use handover](docs/FIRST-USE.md) and earlier [financial UX handover](docs/FINANCIAL-UX.md). The backend calculations and stock ledger are preserved. Sprint 3 has not begun.
 
 ## Start
 

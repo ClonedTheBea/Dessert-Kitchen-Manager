@@ -5,6 +5,8 @@ import type { Business, ProductResult, ProfitReport } from "../businessTypes";
 import { productPlan } from "../businessTypes";
 import { ErrorBox, Modal, type Notify } from "../components/ui";
 import FinancialGlossary from "./FinancialGlossary";
+import RunningCostsEditor from "./RunningCostsEditor";
+import { orderedChannels } from "../channelOrder";
 import { N } from "./BusinessSettings";
 export type Overview = {
   knownMonthlyCosts: number | null;
@@ -23,27 +25,34 @@ type Breakdown = {
   chartMessage: string | null;
 };
 const colors: Record<string, string> = {
-  ingredients: "var(--chart-1)",
-  packaging: "var(--chart-2)",
-  energy: "var(--chart-3)",
-  other: "var(--chart-4)",
-  fees: "var(--chart-5)",
-  vat: "var(--chart-6)",
-  contribution: "var(--chart-7)",
+  ingredients: "var(--cost-ingredients)",
+  packaging: "var(--cost-packaging)",
+  energy: "var(--cost-energy)",
+  other: "var(--cost-labour)",
+  fees: "var(--cost-fees)",
+  vat: "var(--cost-vat)",
+  contribution: "var(--cost-contribution)",
 };
 function Bars({
   title,
   rows,
   unit = "£ / month",
+  edit,
 }: {
   title: string;
   rows: [string, number][];
   unit?: string;
+  edit?: () => void;
 }) {
   const max = Math.max(1, ...rows.map(([, v]) => Math.abs(v)));
   return (
     <section className="panel">
       <h2>{title}</h2>
+      {edit && (
+        <button className="secondary" onClick={edit}>
+          Edit running costs
+        </button>
+      )}
       <p className="help">{unit}</p>
       <div className="finance-bars">
         {rows.map(([k, v]) => (
@@ -83,7 +92,8 @@ export function PricePanel({
   inline?: boolean;
   quick?: boolean;
 }) {
-  const [channel, C] = useState(data.settings.channels[0]?.id ?? "");
+  const channels = orderedChannels(data.settings.channels);
+  const [channel, C] = useState(channels[0]?.id ?? "");
   const [result, R] = useState<Breakdown>();
   const [error, E] = useState("");
   const recipe = state.recipes.find((v) => v.recipe.id === id)?.recipe;
@@ -94,9 +104,7 @@ export function PricePanel({
     recipe?.sellingPrice ??
     0;
   const [trial, T] = useState(quick);
-  const [price, P] = useState(() =>
-    savedPrice(data.settings.channels[0]?.id ?? ""),
-  );
+  const [price, P] = useState(() => savedPrice(channels[0]?.id ?? ""));
   useEffect(() => {
     let active = true;
     R(undefined);
@@ -193,13 +201,23 @@ export function PricePanel({
             } else T(false);
           }}
         >
-          {data.settings.channels.map((c) => (
+          {channels.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>
           ))}
         </select>
       </label>
+      {!channels.some(
+        (c) =>
+          (c.commissionConfigured ?? c.commissionPercent !== 0) &&
+          c.commissionPercent > 0,
+      ) && (
+        <p className="help">
+          No non-zero commission rates are configured. Explicitly confirmed zero
+          fees are valid; unconfigured fees remain incomplete and need review.
+        </p>
+      )}
       <ErrorBox error={error} />
       {result ? (
         <>
@@ -331,7 +349,7 @@ export function PricePanel({
               {(result.segments.length
                 ? result.segments.map((s) => [
                     s.key,
-                    s.name,
+                    s.key === "other" ? "Labour & other direct costs" : s.name,
                     s.amount,
                     `${s.percent.toFixed(2)}%`,
                   ])
@@ -350,7 +368,7 @@ export function PricePanel({
                     ],
                     [
                       "other",
-                      "Other direct costs",
+                      "Labour & other direct costs",
                       r!.labour + r!.otherVariable,
                       "",
                     ],
@@ -499,6 +517,7 @@ export default function MoneyWorkspace({
     initialAction.startsWith("product:") ? initialAction.slice(8) : "",
   );
   const [glossary, G] = useState(false);
+  const [editingCosts, EditCosts] = useState(false);
   useEffect(() => {
     api<Overview>("/financial/overview")
       .then(D)
@@ -642,9 +661,10 @@ export default function MoneyWorkspace({
                 ))}
             </div>
           </section>
-          {!m && data.knownMonthlyCosts != null && (
+          {!m && (
             <Bars
               title="Known monthly running costs"
+              edit={() => EditCosts(true)}
               rows={Object.entries(data.runningCosts)}
             />
           )}
@@ -653,6 +673,7 @@ export default function MoneyWorkspace({
               <div className="finance-chart-grid">
                 <Bars
                   title="Monthly running costs"
+                  edit={() => EditCosts(true)}
                   rows={Object.entries(data.runningCosts).filter(
                     ([, v]) => v !== 0,
                   )}
@@ -721,6 +742,16 @@ export default function MoneyWorkspace({
             unavailable. Forecast orders are customer baskets; product sales
             volumes are individual units.
           </p>
+          {editingCosts && (
+            <RunningCostsEditor
+              close={() => EditCosts(false)}
+              saved={async () => {
+                D(await api<Overview>("/financial/overview"));
+                EditCosts(false);
+              }}
+              openSettings={openSettings}
+            />
+          )}
           {selected && (
             <PricePanel
               id={selected}

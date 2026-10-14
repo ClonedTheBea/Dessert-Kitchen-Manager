@@ -32,7 +32,7 @@ if (kind)
             v.recipe.isSellable !== false,
         )?.recipe ??
         state.recipes.find((v: any) => v.recipe.isSellable !== false).recipe;
-      await page.getByLabel("Choose a product").selectOption(recipe.id);
+      await page.locator(".product-chooser").getByRole("button", { name: new RegExp(recipe.name) }).click();
       await expect(page.locator(".price-legend")).toContainText("Ingredients");
       await page.getByLabel("Test selling price (£)").fill("6.95");
       await expect(page.locator(".price-heading")).toContainText("£6.95");
