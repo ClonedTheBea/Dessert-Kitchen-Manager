@@ -6,6 +6,18 @@ public record WorkingDraft(string Kind,string Id,int Revision,JsonElement Body,s
 public record DraftInput(int Revision,JsonElement Body,string RequestId);
 public sealed partial class Store
 {
+    public void DiscardPurchaseDraft(string id,int revision)
+    {
+        const string kind="inventory-purchase";
+        var draft=Draft(kind,id)??throw new ValidationException("Purchase draft not found.");
+        if(draft.Revision==revision+1 && draft.Result is JsonElement prior && prior.ValueKind==JsonValueKind.Object && prior.TryGetProperty("discarded",out var discarded) && discarded.GetBoolean())return;
+        Guard.Require(draft.Result==null,"A received purchase cannot be discarded.");
+        using var db=Open();using var tx=db.BeginTransaction();
+        using var cmd=Command(db,tx,"UPDATE working_drafts SET revision=revision+1,result=$r,updated_at=$at WHERE kind=$k AND id=$id AND revision=$v AND result IS NULL",("$r","{\"discarded\":true}"),("$at",Now()),("$k",kind),("$id",id),("$v",revision));
+        if(cmd.ExecuteNonQuery()!=1)throw new ConflictException("Purchase draft changed. Reopen it before discarding.");
+        Execute(db,tx,"DELETE FROM record_dependencies WHERE source_kind='draft' AND source_id=$id",("$id",kind+":"+id));
+        Audit(db,tx,"draft:discard-purchase",id);tx.Commit();
+    }
     public WorkingDraft? Draft(string kind,string id)
     {
         using var db=Open();using var cmd=Command(db,null,"SELECT revision,body,request_id,updated_at,result FROM working_drafts WHERE kind=$k AND id=$id",("$k",kind),("$id",id));using var r=cmd.ExecuteReader();

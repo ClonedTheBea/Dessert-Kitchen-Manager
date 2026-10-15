@@ -9,7 +9,7 @@ async function post(page: Page, url: string, data: unknown) {
   return r.json();
 }
 async function open(page: Page, name: string) {
-  await page.getByRole("button", { name: "Recipes", exact: true }).click();
+  await page.getByRole("button", { name: "Recipes & Ingredients", exact: true }).click();
   await page
     .locator(".recipe-card")
     .filter({ has: page.getByRole("heading", { name, exact: true }) })
@@ -207,7 +207,7 @@ test("category illustrations retain dimensions across versions 1 2 3 and types",
       })
     ).recipe;
     await page.reload();
-    await page.getByRole("button", { name: "Recipes", exact: true }).click();
+    await page.getByRole("button", { name: "Recipes & Ingredients", exact: true }).click();
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 });
       const card = page.locator(".recipe-card").filter({

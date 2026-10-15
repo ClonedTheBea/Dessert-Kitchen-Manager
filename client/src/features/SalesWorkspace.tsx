@@ -1,3 +1,4 @@
+import ProductCategories from "../components/ProductCategories";
 import { useEffect, useState } from "react";
 import { api, money } from "../api";
 import { ErrorBox } from "../components/ui";
@@ -125,42 +126,40 @@ export default function SalesWorkspace({
                 }
               />
               <T label="Search order products" value={search} onChange={Q} />
-              <div className="dessert-results">
-                {catalogue.products
-                  .filter((p: any) =>
-                    p.name.toLowerCase().includes(search.toLowerCase()),
-                  )
-                  .map((p: any) => (
-                    <button
-                      className="secondary"
-                      key={p.id}
-                      onClick={() => {
-                        const exists = draft.items.some(
-                          (i: any) => i.recipeId === p.id,
-                        );
-                        edit({
-                          items: exists
-                            ? draft.items.map((i: any) =>
-                                i.recipeId === p.id
-                                  ? { ...i, quantity: i.quantity + 1 }
-                                  : i,
-                              )
-                            : [
-                                ...draft.items,
-                                {
-                                  recipeId: p.id,
-                                  quantity: 1,
-                                  price: price(p.id),
-                                },
-                              ],
-                        });
-                      }}
-                    >
-                      {p.name}
-                      <span>{money(price(p.id))} · Add</span>
-                    </button>
-                  ))}
-              </div>
+              <ProductCategories
+                products={catalogue.products}
+                search={search}
+                render={(p: any) => (
+                  <button
+                    className="secondary"
+                    key={p.id}
+                    onClick={() => {
+                      const exists = draft.items.some(
+                        (i: any) => i.recipeId === p.id,
+                      );
+                      edit({
+                        items: exists
+                          ? draft.items.map((i: any) =>
+                              i.recipeId === p.id
+                                ? { ...i, quantity: i.quantity + 1 }
+                                : i,
+                            )
+                          : [
+                              ...draft.items,
+                              {
+                                recipeId: p.id,
+                                quantity: 1,
+                                price: price(p.id),
+                              },
+                            ],
+                      });
+                    }}
+                  >
+                    {p.name}
+                    <span>{money(price(p.id))} · Add</span>
+                  </button>
+                )}
+              />
             </div>
             <div>
               <h2>Basket</h2>

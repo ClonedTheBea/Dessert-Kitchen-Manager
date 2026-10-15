@@ -12,7 +12,12 @@ import {
 } from "react";
 
 export type Page =
-  "Overview" | "Ingredients" | "Recipes" | "Financial planner" | "Inventory" | "Settings";
+  | "Overview"
+  | "Ingredients"
+  | "Recipes"
+  | "Financial planner"
+  | "Inventory"
+  | "Settings";
 export type Notify = (message: string) => void;
 const units = ["g", "kg", "ml", "l", "each"];
 export const clone = <T,>(value: T): T => structuredClone(value);
@@ -122,11 +127,13 @@ export function Modal({
   children,
   close,
   wide = false,
+  beforeClose,
 }: {
   title: string;
   children: ReactNode;
   close: () => void;
   wide?: boolean;
+  beforeClose?: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -143,6 +150,10 @@ export function Modal({
       className={wide ? "modal wide" : "modal"}
       onCancel={(e) => {
         e.preventDefault();
+        if (beforeClose) {
+          beforeClose();
+          return;
+        }
         void flushEdits().then((ok) => {
           if (ok) close();
         });
@@ -154,9 +165,11 @@ export function Modal({
           className="icon-button"
           aria-label="Close dialog"
           onClick={() =>
-            void flushEdits().then((ok) => {
-              if (ok) close();
-            })
+            beforeClose
+              ? beforeClose()
+              : void flushEdits().then((ok) => {
+                  if (ok) close();
+                })
           }
         >
           <X size={20} />

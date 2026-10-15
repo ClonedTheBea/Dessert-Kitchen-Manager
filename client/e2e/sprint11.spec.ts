@@ -15,7 +15,7 @@ test("method steps, internal pricing, version history and separate variant", asy
   page,
 }) => {
   await login(page);
-  await page.getByRole("button", { name: "Recipes", exact: true }).click();
+  await page.getByRole("button", { name: "Recipes & Ingredients", exact: true }).click();
   await page.getByRole("button", { name: /Cheesecake biscuit base/ }).click();
   await page.getByRole("button", { name: "Edit Recipe" }).click();
   await expect(page.getByLabel("Selling price per yield unit (£)")).toHaveCount(
@@ -211,7 +211,7 @@ test("documented allergen review, invalidation, matrix export and print", async 
     methodSteps: ["Prepare using documented controls."],
   });
   await page.reload();
-  await page.getByRole("button", { name: "Recipes", exact: true }).click();
+  await page.getByRole("button", { name: "Recipes & Ingredients", exact: true }).click();
   await page
     .getByRole("button", { name: /UI allergen review product/ })
     .click();
@@ -258,7 +258,7 @@ test("documented allergen review, invalidation, matrix export and print", async 
     page.getByRole("button", { name: "Approve documented controls" }),
   ).toBeDisabled();
   await page.getByRole("button", { name: "Publish recipe version" }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Publish recipe version" })).toHaveCount(0);
   state = await (await page.request.get("/api/state")).json();
   expect(state.recipeSafety["ui-rice-product"].publicClaims).toEqual([]);
   await page.getByText("Allergen filters & matrix", { exact: true }).click();

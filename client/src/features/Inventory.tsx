@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 import { flushEdits } from "../autoSave";
 
@@ -58,10 +58,18 @@ const tabs = [
 export default function Inventory({
   state,
   initialAction = "",
+  ingredients,
+  refreshRoot,
 }: {
   state: State;
   initialAction?: string;
+  ingredients: () => void;
+  refreshRoot: () => Promise<void>;
 }) {
+  const purchaseButton = useRef<HTMLButtonElement>(null);
+  const closePurchase = useRef<(() => Promise<void>) | null>(null);
+  const [selectedLots, selectLots] = useState<string[]>([]);
+  const [bulk, showBulk] = useState(false);
   const [expanded, setExpanded] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [resumeProduction, setResumeProduction] = useState(false);
@@ -95,6 +103,10 @@ export default function Inventory({
     [review, setReview] = useState<Lot>(),
     [operation, setOperation] = useState<Operation>(),
     [category, setCategory] = useState("");
+
+  useEffect(() => {
+    if (!form && tab === "Purchases") purchaseButton.current?.focus();
+  }, [form, tab]);
 
   const refresh = async () => {
     setStock(await api<InventoryState>("/inventory/state"));
@@ -454,10 +466,17 @@ export default function Inventory({
         <section className="inventory-panel">
           <h2>Purchase receipts</h2>
 
-          <button className="primary" onClick={() => setForm("purchase")}>
+          <button
+            ref={purchaseButton}
+            className="primary"
+            onClick={() => setForm("purchase")}
+          >
             Record purchase / resume draft
           </button>
 
+          <button className="secondary" onClick={ingredients}>
+            Ingredients & supplier details
+          </button>
           <p>Actual receipts are separate from supplier price quotes.</p>
 
           {ops
@@ -479,7 +498,52 @@ export default function Inventory({
       {(tab === "Stock on Hand" || tab === "Finished Products") && (
         <section className="inventory-panel">
           <h2>{tab}</h2>
+          {tab === "Stock on Hand" && (
+            <button
+              className="secondary"
+              disabled={!selectedLots.length}
+              onClick={() => showBulk(true)}
+            >
+              Confirm selected date reviews ({selectedLots.length})
+            </button>
+          )}
 
+          {tab === "Stock on Hand" && (
+            <details className="inventory-line">
+              <summary>Review purchased stock dates together</summary>
+              {balances
+                .filter(
+                  (b) =>
+                    !b.lot.dateReviewed &&
+                    stock.operations.some(
+                      (o) =>
+                        o.id === b.lot.operationId && o.type === "purchase",
+                    ),
+                )
+                .map((b) => (
+                  <label className="checkbox" key={b.lot.id}>
+                    <input
+                      type="checkbox"
+                      checked={selectedLots.includes(b.lot.id)}
+                      onChange={(e) =>
+                        selectLots(
+                          e.target.checked
+                            ? [...new Set([...selectedLots, b.lot.id])]
+                            : selectedLots.filter((id) => id !== b.lot.id),
+                        )
+                      }
+                    />
+                    {b.lot.name} · {b.lot.batchReference || b.lot.id} ·{" "}
+                    {b.lot.useBy || "Date missing"} ·{" "}
+                    {b.lot.reviewSource || "Individual review needed"}
+                  </label>
+                ))}
+              <p>
+                Missing evidence and expired dates will be identified before
+                confirmation.
+              </p>
+            </details>
+          )}
           <div className="inventory-toolbar">
             <Text label="Search stock" value={query} change={setQuery} />
 
@@ -566,6 +630,30 @@ export default function Inventory({
                     <h4>Individual lots, costs & actions</h4>
                     {g.lots.map((b) => (
                       <article className="inventory-stock" key={b.lot.id}>
+                        {!b.lot.dateReviewed &&
+                          stock.operations.some(
+                            (o) =>
+                              o.id === b.lot.operationId &&
+                              o.type === "purchase",
+                          ) && (
+                            <label className="checkbox">
+                              <input
+                                type="checkbox"
+                                aria-label={`Select date review ${b.lot.name} ${b.lot.batchReference || b.lot.id}`}
+                                checked={selectedLots.includes(b.lot.id)}
+                                onChange={(e) =>
+                                  selectLots(
+                                    e.target.checked
+                                      ? [...selectedLots, b.lot.id]
+                                      : selectedLots.filter(
+                                          (id) => id !== b.lot.id,
+                                        ),
+                                  )
+                                }
+                              />
+                              Select for date review
+                            </label>
+                          )}
                         <div>
                           <h3>
                             {b.lot.name}{" "}
@@ -595,7 +683,11 @@ export default function Inventory({
                           </p>
 
                           <p>
-                            {b.status} · Use-by {b.lot.useBy ?? "not recorded"}
+                            {b.status} ·{" "}
+                            {b.lot.dateType === "best-before"
+                              ? "Best-before"
+                              : "Use-by"}{" "}
+                            {b.lot.useBy ?? "not recorded"}
                           </p>
 
                           {b.allergenReviewRequired && (
@@ -1036,6 +1128,11 @@ export default function Inventory({
 
           wide
 
+          beforeClose={
+            form === "purchase"
+              ? () => void closePurchase.current?.()
+              : undefined
+          }
           close={() => setForm("")}
         >
           {form === "existing" && (
@@ -1052,6 +1149,8 @@ export default function Inventory({
           )}
           {form === "purchase" && (
             <PurchaseForm
+              closeControl={closePurchase}
+              cancel={() => setForm("")}
               initialIngredient={
                 initialAction.startsWith("purchase:")
                   ? initialAction.slice(9)
@@ -1063,7 +1162,15 @@ export default function Inventory({
 
               inventory={stock}
 
-              done={refresh}
+              done={async () => {
+                await refresh();
+                await refreshRoot();
+                setConfirmation(
+                  "Purchase received successfully. Stock and receipt totals are updated.",
+                );
+                setForm("");
+                setTab("Purchases");
+              }}
             />
           )}{" "}
           {form === "production" && (
@@ -1130,6 +1237,27 @@ export default function Inventory({
         </Modal>
       )}
 
+      {bulk && (
+        <Modal
+          title="Confirm selected date reviews"
+          close={() => showBulk(false)}
+          wide
+        >
+          <BulkReviews
+            lots={selectedLots
+              .map((id) => stock.lots.find((l) => l.id === id)!)
+              .filter(Boolean)}
+            done={async () => {
+              await refresh();
+              selectLots([]);
+              showBulk(false);
+              setConfirmation(
+                "Selected date reviews recorded separately in history.",
+              );
+            }}
+          />
+        </Modal>
+      )}
       {review && (
         <Modal
           title={`Review dates: ${review.name}`}
@@ -1249,28 +1377,40 @@ function DateForm({ lot, done }: { lot: Lot; done: () => Promise<void> }) {
 
       useBy: lot.useBy,
 
-      dateReviewed: lot.dateReviewed,
+      dateReviewed: false,
+      dateType: lot.dateType || (lot.useBy ? "use-by" : "none"),
+      reviewSource: lot.reviewSource || "Product Checked",
+      reviewNotes: lot.reviewNotes || "",
 
       dateEvidence: lot.dateEvidence,
     }),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
 
   return (
     <div className="inventory-panel">
-      <Dates value={v} change={(d) => set({ ...v, ...d })} />
+      <Dates
+        prepared={lot.kind === "recipe"}
+        value={v}
+        change={(d) => set({ ...v, ...d })}
+      />
 
       <ErrorBox error={error} />
 
       <button
         className="primary"
+        disabled={busy}
 
         onClick={async () => {
+          setBusy(true);
           try {
             await api("/inventory/date-review", v);
 
             await done();
           } catch (e) {
             setError((e as Error).message);
+          } finally {
+            setBusy(false);
           }
         }}
       >
@@ -1473,42 +1613,43 @@ function OperationDetail({
         </pre>
       </details>
 
-      {!["reversal", "date-review"].includes(o.type) && !reversed && (
-        <>
-          <Text label="Reversal reason" value={reason} change={setReason} />
+      {!["reversal", "date-review", "bulk-date-review"].includes(o.type) &&
+        !reversed && (
+          <>
+            <Text label="Reversal reason" value={reason} change={setReason} />
 
-          <p>
-            A reversal restores consumed quantities and removes produced /
-            received quantities. It is blocked if doing so would create negative
-            stock; reverse dependent usage first or record an explained
-            correction.
-          </p>
+            <p>
+              A reversal restores consumed quantities and removes produced /
+              received quantities. It is blocked if doing so would create
+              negative stock; reverse dependent usage first or record an
+              explained correction.
+            </p>
 
-          <ErrorBox error={error} />
+            <ErrorBox error={error} />
 
-          <button
-            className="secondary"
+            <button
+              className="secondary"
 
-            onClick={async () => {
-              try {
-                await api("/inventory/reverse", {
-                  operationId: id,
+              onClick={async () => {
+                try {
+                  await api("/inventory/reverse", {
+                    operationId: id,
 
-                  originalId: o.id,
+                    originalId: o.id,
 
-                  reason,
-                });
+                    reason,
+                  });
 
-                await done();
-              } catch (e) {
-                setError((e as Error).message);
-              }
-            }}
-          >
-            Confirm reversing this operation
-          </button>
-        </>
-      )}
+                  await done();
+                } catch (e) {
+                  setError((e as Error).message);
+                }
+              }}
+            >
+              Confirm reversing this operation
+            </button>
+          </>
+        )}
 
       {reversed && (
         <p>
@@ -1585,5 +1726,94 @@ export function ActualCostComparison({
 
       <p>Comparison only. Your scenario assumptions are not changed.</p>
     </section>
+  );
+}
+
+function BulkReviews({
+  lots,
+  done,
+}: {
+  lots: Lot[];
+  done: () => Promise<void>;
+}) {
+  const [id] = useState(identity),
+    [confirmed, C] = useState(false),
+    [busy, B] = useState(false),
+    [error, E] = useState("");
+  const issue = (l: Lot) =>
+    l.dateReviewed
+      ? "Already reviewed — refresh selection"
+      : !l.useBy
+        ? "Missing date — review individually"
+        : l.useBy < today()
+          ? "Expired — cannot confirm"
+          : !l.reviewSource ||
+              !["use-by", "best-before"].includes(l.dateType || "")
+            ? "Missing source or date type — review individually"
+            : ["Other", "Apiary Shelf-Life"].includes(l.reviewSource) &&
+                !l.reviewNotes?.trim()
+              ? "Missing evidence — review individually"
+              : "";
+  const eligible = lots.filter((l) => !issue(l));
+  return (
+    <>
+      <p>
+        Dates and evidence are kept exactly as recorded. Items needing
+        individual attention are excluded.
+      </p>
+      {lots.map((l) => (
+        <div className="inventory-line" key={l.id}>
+          <strong>
+            {l.name} · {l.batchReference || l.id}
+          </strong>
+          <p>
+            {l.dateType || "Unknown date type"} · {l.useBy || "No date"} ·{" "}
+            {l.reviewSource || "Source not recorded"}
+          </p>
+          <p>{l.reviewNotes}</p>
+          <p>{issue(l) || "Eligible for confirmation"}</p>
+        </div>
+      ))}
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={confirmed}
+          onChange={(e) => C(e.target.checked)}
+        />
+        I checked the packaging and dates for these {eligible.length} eligible
+        lots
+      </label>
+      <ErrorBox error={error} />
+      <button
+        className="primary"
+        disabled={busy || !confirmed || !eligible.length}
+        onClick={async () => {
+          B(true);
+          E("");
+          try {
+            await api("/inventory/date-review/bulk", {
+              operationId: id,
+              reviews: eligible.map((l) => ({
+                operationId: "",
+                lotId: l.id,
+                useBy: l.useBy,
+                dateReviewed: true,
+                dateEvidence: l.dateEvidence,
+                dateType: l.dateType,
+                reviewSource: l.reviewSource,
+                reviewNotes: l.reviewNotes || "",
+              })),
+            });
+            await done();
+          } catch (e) {
+            E((e as Error).message);
+          } finally {
+            B(false);
+          }
+        }}
+      >
+        Confirm {eligible.length} eligible date reviews
+      </button>
+    </>
   );
 }

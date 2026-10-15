@@ -15,10 +15,10 @@ async function stock(page: Page) {
   return (await page.request.get("/api/inventory/state")).json();
 }
 async function reviewDates(d: Locator) {
-  await d.getByLabel("Dates / shelf life reviewed").check();
   await d
-    .getByLabel("Date source or review evidence")
+    .getByLabel(/Review notes/)
     .fill("Synthetic home-testing evidence; owner reviewed dates");
+  await d.getByLabel("Dates / shelf life reviewed").check();
 }
 async function existing(
   page: Page,
@@ -204,16 +204,14 @@ for (const width of [1440, 390])
     await d
       .getByLabel("Supplier", { exact: true })
       .selectOption("sample-supplier");
-    await d.getByLabel("Ingredient or packaging").selectOption("cream-cheese");
+    await d.getByLabel("Search ingredient or packaging").fill("Cream cheese");
+    await d.getByRole("button", { name: "Cream cheese", exact: true }).click();
     await d.getByLabel("Quantity per pack").fill("300");
     await d.getByLabel("Actual price per pack (£)").fill("3.25");
     await d.getByText(/Batch reference & date review/).click();
     await reviewDates(d);
     await d.getByRole("button", { name: "Confirm stock receipt" }).click();
-    await expect(
-      d.getByRole("button", { name: "Confirmed", exact: true }),
-    ).toBeVisible();
-    await d.getByRole("button", { name: "Close dialog" }).click();
+    await expect(d).not.toBeVisible();
     const draft = (
       await (
         await page.request.get("/api/drafts/inventory-production/current")
@@ -317,8 +315,6 @@ test("supplier price shortcut prefills a separate purchase draft without changin
   await reviewDates(d);
   expect((await stock(page)).movements).toHaveLength(before);
   await d.getByRole("button", { name: "Confirm stock receipt" }).click();
-  await expect(
-    d.getByRole("button", { name: "Confirmed", exact: true }),
-  ).toBeVisible();
+  await expect(d).not.toBeVisible();
   expect((await stock(page)).movements).toHaveLength(before + 1);
 });

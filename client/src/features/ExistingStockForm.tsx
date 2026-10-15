@@ -140,7 +140,7 @@ export default function ExistingStockForm({
               For example: flour already in my cupboard, or brownies baked
               yesterday. Do not guess a preparation date.
             </p>
-            <Dates value={v} change={(dates) => set({ ...v, ...dates })} />
+            <Dates prepared={v.kind === "recipe"} value={v} change={(dates) => set({ ...v, ...dates })} />
             <details>
               <summary>Optional cost & notes</summary>
               <Select

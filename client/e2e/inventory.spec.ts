@@ -26,10 +26,10 @@ async function tab(page: Page, name: string) {
     .click();
 }
 async function dateReview(scope: Locator) {
-  await scope.getByLabel("Dates / shelf life reviewed").check();
   await scope
-    .getByLabel("Date source or review evidence")
+    .getByLabel(/Review notes/)
     .fill("Illustrative test label and date review; isolated environment");
+  await scope.getByLabel("Dates / shelf life reviewed").check();
 }
 async function purchase(
   page: Page,
@@ -48,11 +48,16 @@ async function purchase(
   await d.getByLabel("Location", { exact: true }).selectOption(locationId);
   await d.getByText("Receipt reference & notes", { exact: true }).click();
   await d.getByLabel("Receipt reference").fill(reference);
+  const catalogue = await (await page.request.get("/api/state")).json();
   for (let i = 0; i < lines.length; i++) {
     if (i) await d.getByRole("button", { name: "Add purchase line" }).click();
     const section = d.locator(".inventory-line").nth(i),
       line = lines[i];
-    await section.getByLabel("Ingredient or packaging").selectOption(line.id);
+    const itemName = catalogue.ingredients.find(
+      (item: any) => item.id === line.id,
+    ).name;
+    await section.getByLabel("Search ingredient or packaging").fill(itemName);
+    await section.getByRole("button", { name: itemName, exact: true }).click();
     await section.getByLabel("Quantity per pack").fill(String(line.quantity));
     await section.getByLabel("Pack unit").selectOption(line.unit);
     await section
@@ -68,10 +73,7 @@ async function purchase(
   await expect(d.locator(".save-status")).toContainText("Draft saved");
   expect((await stock(page)).movements).toHaveLength(before);
   await d.getByRole("button", { name: "Confirm stock receipt" }).click();
-  await expect(
-    d.getByRole("button", { name: "Confirmed", exact: true }),
-  ).toBeVisible();
-  await d.getByRole("button", { name: "Close dialog" }).click();
+  await expect(d).not.toBeVisible();
   expect((await stock(page)).movements.length).toBe(before + lines.length);
 }
 for (const width of [1280, 390])
@@ -299,7 +301,8 @@ test("purchase draft survives reopening and a duplicate confirmation cannot add 
   await d
     .getByLabel("Supplier", { exact: true })
     .selectOption("sample-supplier");
-  await d.getByLabel("Ingredient or packaging").selectOption("cream-cheese");
+  await d.getByLabel("Search ingredient or packaging").fill("Cream cheese");
+  await d.getByRole("button", { name: "Cream cheese", exact: true }).click();
   await d.getByLabel("Quantity per pack").fill("280");
   await d.getByLabel("Actual price per pack (£)").fill("3.25");
   await d.getByText("Receipt reference & notes", { exact: true }).click();
@@ -308,7 +311,9 @@ test("purchase draft survives reopening and a duplicate confirmation cannot add 
   await dateReview(d.locator(".inventory-line"));
   await expect(d.locator(".save-status")).toContainText("Draft saved");
   const count = (await stock(page)).movements.length;
-  await d.getByRole("button", { name: "Close dialog" }).click();
+  await page.reload();
+  await nav(page);
+  await tab(page, "Purchases");
   await page
     .getByRole("button", { name: "Record purchase / resume draft" })
     .click();
@@ -318,9 +323,7 @@ test("purchase draft survives reopening and a duplicate confirmation cannot add 
   );
   expect((await stock(page)).movements).toHaveLength(count);
   await d.getByRole("button", { name: "Confirm stock receipt" }).click();
-  await expect(
-    d.getByRole("button", { name: "Confirmed", exact: true }),
-  ).toBeVisible();
+  await expect(d).not.toBeVisible();
   const draft = await (
     await page.request.get("/api/drafts/inventory-purchase/current")
   ).json();

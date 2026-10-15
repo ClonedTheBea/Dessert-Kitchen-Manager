@@ -1,3 +1,4 @@
+import ProductCategories from "../components/ProductCategories";
 import { useEffect, useState } from "react";
 import { api, money, number, today } from "../api";
 import type { Model, State } from "../types";
@@ -642,24 +643,22 @@ export default function MoneyWorkspace({
                 test a price.
               </p>
             )}
-            <div className="dessert-results">
-              {state.recipes
-                .filter(
-                  (v) =>
-                    v.recipe.isSellable !== false &&
-                    v.recipe.name.toLowerCase().includes(search.toLowerCase()),
-                )
-                .map((v) => (
-                  <button
-                    className="secondary"
-                    key={v.recipe.id}
-                    onClick={() => P(v.recipe.id)}
-                  >
-                    {v.recipe.name}
-                    <span>Price Breakdown →</span>
-                  </button>
-                ))}
-            </div>
+            <ProductCategories
+              products={state.recipes
+                .filter((v) => v.recipe.isSellable !== false)
+                .map((v) => v.recipe)}
+              search={search}
+              render={(r) => (
+                <button
+                  className="secondary"
+                  key={r.id}
+                  onClick={() => P(r.id)}
+                >
+                  {r.name}
+                  <span>Price Breakdown →</span>
+                </button>
+              )}
+            />
           </section>
           {!m && (
             <Bars

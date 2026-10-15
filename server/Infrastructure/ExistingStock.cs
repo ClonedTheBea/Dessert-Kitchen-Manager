@@ -41,9 +41,10 @@ public sealed partial class Store
             var lot=new StockLot(Guid.NewGuid().ToString("N"),input.Kind,input.ItemId,name,unit,input.RecipeVersion,
                 input.OperationId,"EXISTING-"+input.OperationId[..Math.Min(8,input.OperationId.Length)],input.Date,input.UseBy,
                 input.DateReviewed,input.DateEvidence,quantity,input.TotalCost/quantity,Now(),IngredientSnapshot:ingredient,
-                ValuationStatus:input.ValuationStatus,Provenance:provenance,PreparedOn:input.PreparedOn);
+                ValuationStatus:input.ValuationStatus,Provenance:provenance,PreparedOn:input.PreparedOn,DateType:input.DateType,ReviewSource:input.ReviewSource,ReviewNotes:input.ReviewNotes);
             // No supplier purchase, recipe consumption or historical FIFO allocation is inferred.
             // Missing source/allergen evidence remains explicitly unverified.
+            ValidateDateReview(new(input.OperationId,lot.Id,input.UseBy,input.DateReviewed,input.DateEvidence,input.DateType,input.ReviewSource,input.ReviewNotes),lot);
             ctx.NewLots.Add(lot);
             ctx.Move(lot,input.LocationId,quantity,input.Kind=="ingredient"?"opening-stock":"historical-preparation",input.Date,input.Source+" · "+input.Notes);
             return lot;

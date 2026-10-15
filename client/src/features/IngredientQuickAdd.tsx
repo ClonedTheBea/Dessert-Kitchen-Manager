@@ -10,12 +10,14 @@ type Setup = {
 };
 export default function IngredientQuickAdd({
   state,
+  oneOff = false,
   close,
   saved,
 }: {
+  oneOff?: boolean;
   state: State;
   close: () => void;
-  saved: () => Promise<void>;
+  saved: (ingredient?: Ingredient) => Promise<void>;
 }) {
   const blankPrice: Price = {
     id: "",
@@ -45,10 +47,15 @@ export default function IngredientQuickAdd({
       minimumStock: 0,
       isPackaging: false,
     },
-    price: blankPrice,
+    price: oneOff ? null : blankPrice,
     newSupplierName: "",
   });
-  const save = useAutoSave(value, set, "/drafts/ingredient-setup/new", true);
+  const save = useAutoSave(
+    value,
+    set,
+    `/drafts/ingredient-setup/${oneOff ? "purchase" : "new"}`,
+    true,
+  );
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const item = value.ingredient,
@@ -89,11 +96,14 @@ export default function IngredientQuickAdd({
           setError("");
           try {
             if (!(await save.flush())) return;
-            await api("/drafts/ingredient-setup/new/publish", {
-              revision: save.revision(),
-            });
+            const result = await api<{ ingredient: Ingredient }>(
+              `/drafts/ingredient-setup/${oneOff ? "purchase" : "new"}/publish`,
+              {
+                revision: save.revision(),
+              },
+            );
             save.markPublished();
-            await saved();
+            await saved(result.ingredient);
           } catch (e) {
             setError((e as Error).message);
           } finally {

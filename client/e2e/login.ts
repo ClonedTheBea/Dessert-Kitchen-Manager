@@ -39,8 +39,8 @@ export async function navigate(page: Page, name: string) {
     return;
   }
   const primary =
-    name === "Ingredients"
-      ? "Recipes"
+    (name === "Ingredients" || name === "Recipes")
+      ? "Recipes & Ingredients"
       : name === "Financial planner"
         ? "Money"
         : name === "Inventory"

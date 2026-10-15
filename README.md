@@ -99,6 +99,6 @@ Known limits and scheduled work:
 - Child recipe labour/packaging is included in its sub-recipe line total. The top-level packaging/labour breakdown shows directly entered costs; the total includes both.
 - Sample recipes, allergens and storage notes are illustrative. Verify actual recipes and supplier specifications before production.
 
-Current usability handover: [Sprint 2.1.1](docs/SPRINT-2.1.1.md), including household stock, grouped inventory, shortage recovery, validation and the manual acceptance checklist.
+Current usability handover: [Sprint 3.1](docs/SPRINT31.md), including category browsing, supplier-filtered shopping, date reviews, screenshots and the manual acceptance checklist. Earlier household-stock and production workflows are documented in [Sprint 2.1.1](docs/SPRINT-2.1.1.md).
 
-Business Settings now holds the editable assumptions; Financial Overview shows results and Price Breakdown explains each product price. See the [Financial UX handover](docs/FINANCIAL-UX.md) and the [underlying accounting methods](docs/BUSINESS-PROFITABILITY.md). Sprint 3 remains pending acceptance.
+Business Settings now holds the editable assumptions; Financial Overview shows results and Price Breakdown explains each product price. See the [Financial UX handover](docs/FINANCIAL-UX.md) and the [underlying accounting methods](docs/BUSINESS-PROFITABILITY.md). Orders, sales and payments are documented in [Sprint 3](docs/SPRINT3.md). Sprint 4 has not started.

@@ -1440,3 +1440,13 @@ nav[aria-label="Money workspace"]{display:flex;flex-direction:row;flex-wrap:wrap
 @media(max-width:760px){.till-layout .dessert-results{grid-template-columns:1fr;} .money-tabs button{font-size:13px;padding:10px;} }
 
 .sales-report > .panel, .sales-report > .financial-cards { margin-bottom:24px; }
+
+.category-tiles { display: grid; grid-template-columns: repeat(auto-fit,minmax(145px,1fr)); gap: 12px; margin: 16px 0; }
+.category-tiles .category-tile { display: flex; flex-direction: column; gap: 10px; justify-content: center; align-items: center; min-height: 140px; white-space: normal; }
+.product-categories { min-width: 0; }
+.purchase-search-results { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.purchase-search-results button { white-space: normal; min-height: 44px; }
+
+.basket-line .inventory-fields > .purchase-ingredient { grid-column: 1 / -1; }
+.basket-line .inventory-fields.date-review-fields { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+.basket-line .inventory-fields.date-review-fields > .field:first-child { grid-column: auto; }

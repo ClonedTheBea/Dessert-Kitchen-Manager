@@ -13,6 +13,9 @@ export type Lot = {
   useBy: string | null;
   dateReviewed: boolean;
   dateEvidence: string;
+  dateType?: string;
+  reviewSource?: string;
+  reviewNotes?: string;
   initialQuantity: number;
   unitCost: number | null;
   allergenSnapshot?: AllergenAssessment;
@@ -111,8 +114,12 @@ export type DateReview = {
   useBy: string | null;
   dateReviewed: boolean;
   dateEvidence: string;
+  dateType?: string;
+  reviewSource?: string;
+  reviewNotes?: string;
 };
 export type PurchaseLine = DateReview & {
+  notes?: string;
   ingredientId: string;
   packs: number;
   packSize: number;

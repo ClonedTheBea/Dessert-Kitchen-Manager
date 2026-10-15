@@ -69,7 +69,7 @@ test("owner setup, catalogue, quotes, recipe costing, versions, scenarios and ba
       .first(),
   ).toBeVisible();
   await page.getByRole("button", { name: "Close dialog" }).click();
-  await page.getByRole("button", { name: "Recipes", exact: true }).click();
+  await page.getByRole("button", { name: "Recipes & Ingredients", exact: true }).click();
   await page.getByRole("button", { name: "Create a recipe" }).click();
   await page
     .getByLabel("Recipe name", { exact: true })
@@ -92,7 +92,7 @@ test("owner setup, catalogue, quotes, recipe costing, versions, scenarios and ba
     page.getByRole("heading", { name: "First homemade cheesecake" }),
   ).toBeVisible();
   await page.reload();
-  await page.getByRole("button", { name: "Recipes", exact: true }).click();
+  await page.getByRole("button", { name: "Recipes & Ingredients", exact: true }).click();
   await page
     .getByRole("button")
     .filter({
@@ -178,7 +178,7 @@ test("mobile navigation and recipe editor fit the viewport", async ({
     fullPage: true,
   });
   await page.getByRole("button", { name: "Toggle navigation" }).click();
-  await page.getByRole("button", { name: "Recipes", exact: true }).click();
+  await page.getByRole("button", { name: "Recipes & Ingredients", exact: true }).click();
   await page.getByRole("button", { name: /Lemon cheesecake pot/ }).click();
   await expect(page.locator(".recipe-page")).toBeVisible();
   expect(

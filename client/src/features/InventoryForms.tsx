@@ -1,4 +1,11 @@
-import { useEffect, useState, type ReactNode } from "react";
+import IngredientQuickAdd from "./IngredientQuickAdd";
+import {
+  useEffect,
+  useState,
+  useRef,
+  type RefObject,
+  type ReactNode,
+} from "react";
 import { api, money, number, today } from "../api";
 import { SaveStatus, useAutoSave } from "../autoSave";
 import { ErrorBox, Field, Num, Unit } from "../components/ui";
@@ -107,35 +114,86 @@ export function Place({
 export function Dates({
   value,
   change,
+  prepared = false,
 }: {
   value: DateReview;
   change: (v: DateReview) => void;
+  prepared?: boolean;
 }) {
+  const source = value.reviewSource || "Product Checked";
+  const dateType = value.dateType || (value.useBy ? "use-by" : "none");
+  const update = (patch: Partial<DateReview>) => {
+    const next = {
+      ...value,
+      dateType,
+      reviewSource: source,
+      reviewNotes: value.reviewNotes || "",
+      ...patch,
+    };
+    next.dateEvidence = `${next.reviewSource}${next.reviewNotes ? ": " + next.reviewNotes : ""}`;
+    change(next);
+  };
   return (
-    <div className="inventory-fields">
+    <div className="inventory-fields date-review-fields">
+      <Select
+        label="Date type"
+        value={dateType}
+        change={(dateType) => update({ dateType, dateReviewed: false })}
+        options={[
+          { id: "use-by", name: "Use-by" },
+          { id: "best-before", name: "Best-before" },
+          { id: "none", name: "Not applicable or not provided" },
+        ]}
+      />
       <Text
-        label="Recorded use-by (optional)"
+        label="Recorded date"
         type="date"
         value={value.useBy ?? ""}
-        change={(useBy) => change({ ...value, useBy: useBy || null })}
+        change={(useBy) =>
+          update({ useBy: useBy || null, dateReviewed: false })
+        }
       />
+      <Select
+        label="Review source"
+        value={source}
+        change={(reviewSource) => update({ reviewSource, dateReviewed: false })}
+        options={[
+          "Product Checked",
+          "Manufacturer Label",
+          "Supplier Documentation",
+          ...(prepared ? ["Apiary Shelf-Life"] : []),
+          "Other",
+        ].map((name) => ({ id: name, name }))}
+      />
+      <Text
+        label={
+          source === "Apiary Shelf-Life"
+            ? "Approved shelf-life procedure / record reference"
+            : source === "Other" || dateType === "none"
+              ? "Review notes (required)"
+              : "Review notes (optional)"
+        }
+        value={value.reviewNotes || ""}
+        change={(reviewNotes) => update({ reviewNotes, dateReviewed: false })}
+      />
+      {source === "Apiary Shelf-Life" && (
+        <small>
+          Use only an approved procedure for this prepared product. No shelf
+          life is calculated or extended.
+        </small>
+      )}
       <label className="inventory-check">
         <input
           type="checkbox"
           checked={value.dateReviewed}
-          onChange={(e) => change({ ...value, dateReviewed: e.target.checked })}
+          onChange={(e) => update({ dateReviewed: e.target.checked })}
         />
         Dates / shelf life reviewed
       </label>
-      <Text
-        label="Date source or review evidence"
-        value={value.dateEvidence}
-        change={(dateEvidence) => change({ ...value, dateEvidence })}
-      />
       <small>
-        Use the supplier label or your reviewed evidence. No safe shelf life is
-        inferred from a recipe. Unreviewed and expired lots cannot be used in
-        production.
+        Leave unticked to review later. If a required date or evidence is
+        missing, stock stays unavailable. No date means you must explain why a
+        date is not required.
       </small>
     </div>
   );
@@ -147,7 +205,11 @@ export function DraftForm<T extends object>({
   done,
   label,
   id = "current",
+  closeControl,
+  cancel,
 }: {
+  closeControl?: RefObject<(() => Promise<void>) | null>;
+  cancel?: () => void;
   kind: string;
   initial: T;
   children: (value: T, set: (v: T) => void) => ReactNode;
@@ -160,6 +222,34 @@ export function DraftForm<T extends object>({
     [busy, setBusy] = useState(false),
     [posted, setPosted] = useState(false);
   const save = useAutoSave(value, set, `/drafts/inventory-${kind}/${id}`, true);
+  const submitting = useRef(false);
+  const starting = useRef(initial);
+  const close = async () => {
+    if (submitting.current || !save.ready) return;
+    const changed = JSON.stringify({...value, operationId: ""}) !== JSON.stringify({...starting.current, operationId: ""});
+    if (!posted && changed && !window.confirm("Discard this unconfirmed purchase draft? No stock has been received.")) return;
+    submitting.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      if (!posted && changed) {
+        if (!(await save.flush())) return;
+        if (save.revision() > 0)
+          await api(`/inventory/purchase/draft/${id}/discard`, {
+            revision: save.revision(),
+          });
+        save.markPublished();
+      }
+      cancel?.();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      submitting.current = false;
+      setBusy(false);
+    }
+  };
+  if (closeControl) closeControl.current = close;
+
   return (
     <section className="inventory-panel">
       <SaveStatus save={save} />
@@ -176,6 +266,8 @@ export function DraftForm<T extends object>({
           className="primary"
           disabled={!save.ready || busy || posted}
           onClick={async () => {
+            if (submitting.current) return;
+            submitting.current = true;
             setBusy(true);
             setError("");
             try {
@@ -190,12 +282,22 @@ export function DraftForm<T extends object>({
             } catch (e) {
               setError((e as Error).message);
             } finally {
+              submitting.current = false;
               setBusy(false);
             }
           }}
         >
           {busy ? "Confirming…" : posted ? "Confirmed" : label}
         </button>
+        {cancel && (
+          <button
+            className="secondary"
+            disabled={busy || !save.ready}
+            onClick={() => void close()}
+          >
+            Cancel
+          </button>
+        )}
         {posted && <p>Recorded. Close this form to start another operation.</p>}
       </div>
     </section>
@@ -207,12 +309,16 @@ export function PurchaseForm({
   done,
   defaultLocation,
   initialIngredient,
+  closeControl,
+  cancel,
 }: {
   state: State;
   inventory: InventoryState;
   done: () => Promise<void>;
   defaultLocation: string;
   initialIngredient?: string;
+  closeControl?: RefObject<(() => Promise<void>) | null>;
+  cancel?: () => void;
 }) {
   const blank = (): PurchaseLine => ({
     ingredientId: "",
@@ -228,7 +334,10 @@ export function PurchaseForm({
     batchReference: "",
     useBy: null,
     dateReviewed: false,
-    dateEvidence: "",
+    dateEvidence: "Product Checked",
+    dateType: "none",
+    reviewSource: "Product Checked",
+    reviewNotes: "",
   });
   const quote = state.prices
     .filter(
@@ -295,6 +404,8 @@ export function PurchaseForm({
   };
   return (
     <DraftForm
+      closeControl={closeControl}
+      cancel={cancel}
       kind="purchase"
       id={initialIngredient ? `ingredient-${initialIngredient}` : "current"}
       initial={initial}
@@ -338,21 +449,25 @@ export function PurchaseForm({
               <section className="inventory-line basket-line" key={i}>
                 <h3>Item {i + 1}</h3>
                 <div className="inventory-fields">
-                  <Select
+                  <PurchaseIngredient
                     label="Ingredient or packaging"
                     value={l.ingredientId}
-                    options={state.ingredients.filter((x) => !x.archived)}
-                    change={(ingredientId) => {
+                    state={state}
+                    supplier={v.supplierId}
+                    change={(ingredientId, baseUnit) => {
                       const item = state.ingredients.find(
                         (x) => x.id === ingredientId,
                       );
-                      if (item)
-                        update(
-                          prefill(
-                            { ...l, ingredientId, unit: item.baseUnit },
-                            v.supplierId,
-                          ),
-                        );
+                      update(
+                        prefill(
+                          {
+                            ...l,
+                            ingredientId,
+                            unit: item?.baseUnit ?? baseUnit,
+                          },
+                          v.supplierId,
+                        ),
+                      );
                     }}
                   />
                   <Numeric
@@ -381,6 +496,11 @@ export function PurchaseForm({
                     change={(packPrice) => update({ ...l, packPrice })}
                   />
                 </div>
+                <Text
+                  label="Item notes"
+                  value={l.notes || ""}
+                  change={(notes) => update({ ...l, notes })}
+                />
                 <details>
                   <summary>
                     Batch reference & date review{" "}
@@ -814,7 +934,7 @@ export function ProductionForm({
           <section className="workflow-step">
             <h3>3. Record storage dates</h3>
             {v.mode === "made-ahead" ? (
-              <Dates value={v} change={(d) => set({ ...v, ...d })} />
+              <Dates prepared value={v} change={(d) => set({ ...v, ...d })} />
             ) : (
               <p>Made to order: no finished stock will be created.</p>
             )}
@@ -1384,5 +1504,104 @@ export function ShoppingForm({
         </div>
       </fieldset>
     </section>
+  );
+}
+
+function PurchaseIngredient({
+  state,
+  supplier,
+  value,
+  change,
+  label,
+}: {
+  state: State;
+  supplier: string;
+  value: string;
+  change: (id: string, unit: string) => void;
+  label: string;
+}) {
+  const [query, Q] = useState("");
+  const [all, A] = useState(false);
+  const [creating, C] = useState(false);
+  const [items, I] = useState(state.ingredients);
+  useEffect(() => {
+    A(false);
+    Q("");
+  }, [supplier]);
+  const selected = items.find((i) => i.id === value);
+  const matches = items.filter(
+    (i) =>
+      !i.archived &&
+      (all ||
+        !supplier ||
+        state.prices.some(
+          (p) => p.supplierId === supplier && p.ingredientId === i.id,
+        )) &&
+      i.name.toLowerCase().includes(query.toLowerCase()),
+  );
+  return (
+    <div className="purchase-ingredient">
+      <Text label={`Search ${label.toLowerCase()}`} value={query} change={Q} />
+      {selected && (
+        <p>
+          Selected: <strong>{selected.name}</strong> · {selected.baseUnit}
+        </p>
+      )}
+      <div className="purchase-search-results">
+        {matches.slice(0, 12).map((i) => (
+          <button
+            className="secondary"
+            key={i.id}
+            onClick={() => {
+              change(i.id, i.baseUnit);
+              Q(i.name);
+            }}
+          >
+            {i.name}
+          </button>
+        ))}
+      </div>
+      {!matches.length && <p>No matching items for this supplier.</p>}
+      {matches.length > 12 && (
+        <small>Type more of the name to narrow the results.</small>
+      )}
+      <button
+        className="text-button"
+        onClick={() => {
+          A(!all);
+          Q("");
+        }}
+      >
+        {all ? "Back to supplier items" : "Add an item not listed"}
+      </button>
+      {all && (
+        <>
+          <p>
+            Link an existing ingredient above, or create one. This purchase is a
+            one-off supplier association; its price will not change supplier
+            quotes.
+          </p>
+          <button className="secondary" onClick={() => C(true)}>
+            Create new ingredient
+          </button>
+        </>
+      )}
+      {creating && (
+        <IngredientQuickAdd
+          oneOff
+          state={state}
+          close={() => C(false)}
+          saved={async (item) => {
+            const next = await api<State>("/state");
+            I(next.ingredients);
+            C(false);
+            if (item) {
+              change(item.id, item.baseUnit);
+              Q(item.name);
+            }
+          }}
+        />
+      )}
+    </div>
   );
 }

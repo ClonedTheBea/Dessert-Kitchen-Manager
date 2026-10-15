@@ -65,7 +65,8 @@ public sealed partial class Store
         var assessment=root.AllergenSnapshot;string? lotId=null;
         if(input.Mode=="made-ahead")
         {
-            lotId=Guid.NewGuid().ToString("N");var lot=new StockLot(lotId,"recipe",root.Recipe.Id,root.Recipe.Name,root.Recipe.YieldUnit,root.Recipe.Revision,input.OperationId,input.BatchReference,input.Date,input.UseBy,input.DateReviewed,input.DateEvidence,input.ActualYield,total/input.ActualYield,Now(),assessment,ValuationStatus:valuation);
+            lotId=Guid.NewGuid().ToString("N");var lot=new StockLot(lotId,"recipe",root.Recipe.Id,root.Recipe.Name,root.Recipe.YieldUnit,root.Recipe.Revision,input.OperationId,input.BatchReference,input.Date,input.UseBy,input.DateReviewed,input.DateEvidence,input.ActualYield,total/input.ActualYield,Now(),assessment,ValuationStatus:valuation,DateType:input.DateType,ReviewSource:input.ReviewSource,ReviewNotes:input.ReviewNotes);
+            ValidateDateReview(new(input.OperationId,lot.Id,input.UseBy,input.DateReviewed,input.DateEvidence,input.DateType,input.ReviewSource,input.ReviewNotes),lot);
             ctx.NewLots.Add(lot);ctx.Move(lot,input.DestinationId,input.ActualYield,"production-output",input.Date,input.Notes);
         }
         return new ProductionResult(input.BatchReference,root.Recipe.Id,root.Recipe.Revision,input.PlannedYield,input.ActualYield,root.Recipe.YieldUnit,input.Mode,ExpectedCost(root,input.PlannedYield,input.ExtraWastePercent),material,input.LabourCost,input.OtherCost,total,total/input.ActualYield,lotId,allocations,assessment,input.Operator,input.Notes,valuation);

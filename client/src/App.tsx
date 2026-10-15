@@ -87,7 +87,7 @@ export default function App() {
   const pages = [
     { name: "Overview" as Page, label: "Home", icon: LayoutDashboard },
 
-    { name: "Recipes" as Page, label: "Recipes", icon: BookOpen },
+    { name: "Recipes" as Page, label: "Recipes & Ingredients", icon: BookOpen },
     { name: "Inventory" as Page, label: "Stock", icon: Wheat },
     {
       name: "Financial planner" as Page,
@@ -192,7 +192,9 @@ export default function App() {
               Workspace <ChevronRight size={14} />{" "}
               <strong>
                 {page === "Ingredients"
-                  ? "Recipes / Ingredients"
+                  ? action === "suppliers"
+                    ? "Recipes & Ingredients / Suppliers"
+                    : "Recipes & Ingredients / Ingredients"
                   : (pages.find((p) => p.name === page)?.label ?? page)}
               </strong>
             </span>
@@ -217,7 +219,7 @@ export default function App() {
                     className={page === "Recipes" ? "active" : ""}
                     onClick={() => navigate("Recipes")}
                   >
-                    Recipe book
+                    Recipe Book
                   </button>
                   <button
                     className={page === "Ingredients" ? "active" : ""}
@@ -252,7 +254,9 @@ export default function App() {
                 />
               )}
               {page === "Financial planner" && (
-                <MoneyWorkspace key={navSeq} initialAction={action}
+                <MoneyWorkspace
+                  key={navSeq}
+                  initialAction={action}
                   openSettings={(action) => void navigate("Settings", action)}
                   state={state}
                   refresh={refresh}
@@ -260,9 +264,21 @@ export default function App() {
                 />
               )}
               {page === "Inventory" && (
-                <Inventory key={navSeq} initialAction={action} state={state} />
+                <Inventory
+                  key={navSeq}
+                  initialAction={action}
+                  state={state}
+                  refreshRoot={refresh}
+                  ingredients={() => navigate("Ingredients")}
+                />
               )}
-              {page === "Settings" && <SettingsPage key={navSeq} state={state} initialAction={action} />}
+              {page === "Settings" && (
+                <SettingsPage
+                  key={navSeq}
+                  state={state}
+                  initialAction={action}
+                />
+              )}
             </>
           )}
           <footer className="page-footer">

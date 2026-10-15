@@ -23,10 +23,51 @@ public sealed partial class Store
     {
         var lots=InventoryRows<StockLot>(db,tx,"inventory_lots");
         using var cmd=Command(db,tx,"SELECT body FROM inventory_operations WHERE type='date-review' ORDER BY rowid");using var r=cmd.ExecuteReader();
-        while(r.Read()){var review=JsonSerializer.Deserialize<LotDateReview>(r.GetString(0),Json)!;var i=lots.FindIndex(l=>l.Id==review.LotId);if(i>=0)lots[i]=lots[i] with{UseBy=review.UseBy,DateReviewed=review.DateReviewed,DateEvidence=review.DateEvidence};}return lots;
+        while(r.Read()){var review=JsonSerializer.Deserialize<LotDateReview>(r.GetString(0),Json)!;var i=lots.FindIndex(l=>l.Id==review.LotId);if(i>=0)lots[i]=lots[i] with{UseBy=review.UseBy,DateReviewed=review.DateReviewed,DateEvidence=review.DateEvidence,DateType=review.DateType,ReviewSource=review.ReviewSource,ReviewNotes=review.ReviewNotes};}return lots;
     }
     public List<StockLot> StockLots(){using var db=Open();return ReviewedLots(db,null);}
-    public LotDateReview ReviewLot(LotDateReview input)=>InventoryPost("date-review",input.OperationId,input,"owner",ctx=>{ctx.Lot(input.LotId);ReviewDate(input.DateReviewed,input.DateEvidence);Guard.Text(input.DateEvidence,"Reason and date evidence",2000);return input;});
+    public LotDateReview ReviewLot(LotDateReview input)=>InventoryPost("date-review",input.OperationId,input,"owner",ctx=>{
+        var lot=ctx.Lot(input.LotId);
+        Guard.Text(input.DateEvidence,"Date review evidence",2000);
+        ValidateDateReview(input,lot);
+        return input;
+    });
+    static void ValidateDateReview(LotDateReview review,StockLot? lot=null)
+    {
+        ReviewDate(review.DateReviewed,review.DateEvidence);
+        if(lot?.UseBy!=null) Guard.Require(review.UseBy!=null && review.UseBy<=lot.UseBy,"A date review cannot remove or extend the recorded date.");
+        if(lot?.DateType!=null) Guard.Require(review.DateType==lot.DateType,"Keep the recorded date type; investigate corrections individually outside routine review.");
+        if(lot!=null && review.DateReviewed) Guard.Require(review.UseBy==null || review.UseBy>=AllergenRules.Today(),"Expired stock cannot be approved.");
+        if(review.ReviewSource==null && review.DateType==null) return; // Historical clients retain their recorded evidence.
+        Guard.Require(review.DateType is "use-by" or "best-before" or "none","Choose a date type.");
+        Guard.Require(review.ReviewSource is "Product Checked" or "Manufacturer Label" or "Supplier Documentation" or "Apiary Shelf-Life" or "Other","Choose a review source.");
+        if(review.ReviewSource is "Other" or "Apiary Shelf-Life") Guard.Text(review.ReviewNotes,"Notes or approved shelf-life procedure reference",2000);
+        if(review.ReviewSource=="Apiary Shelf-Life") Guard.Require(lot?.Kind=="recipe","An internal shelf-life procedure can only review a prepared product or component.");
+        if(review.DateReviewed) {
+            Guard.Require(review.UseBy==null || review.UseBy>=AllergenRules.Today(),"Expired stock cannot be approved.");
+            if(review.DateType=="none") {
+                Guard.Require(review.UseBy==null,"Choose a date type for the recorded date.");
+                Guard.Text(review.ReviewNotes,"Explain why no date is required; missing evidence must be left for later",2000);
+            } else Guard.Require(review.UseBy!=null,"Enter the recorded date or leave this lot unreviewed.");
+        }
+    }
+    public List<LotDateReview> ReviewLots(BulkDateReview input)=>InventoryPost("bulk-date-review",input.OperationId,input,"owner",ctx=>{
+        Guard.Require(input.Reviews is {Count:>0 and <=100},"Select 1–100 purchased lots.");
+        Guard.Require(input.Reviews.Select(r=>r.LotId).Distinct().Count()==input.Reviews.Count,"Select each lot once.");
+        var reviews=new List<LotDateReview>();
+        foreach(var request in input.Reviews) {
+            var lot=ctx.Lot(request.LotId);
+            Guard.Require(ctx.PurchaseIds.Contains(lot.OperationId) && !lot.DateReviewed,"Select unreviewed purchased lots.");
+            Guard.Require(lot.UseBy!=null && lot.ReviewSource!=null && lot.DateType is "use-by" or "best-before","Missing date or evidence needs individual review.");
+            Guard.Require(request.UseBy==lot.UseBy && request.DateType==lot.DateType && request.ReviewSource==lot.ReviewSource && request.ReviewNotes==lot.ReviewNotes && request.DateEvidence==lot.DateEvidence,"Lot details changed. Reopen the review before confirming.");
+            Guard.Require(request.DateReviewed,"Explicitly confirm the selected reviews.");
+            var review=request with {OperationId=input.OperationId+":"+reviews.Count};
+            ValidateDateReview(review,lot);
+            ctx.NewReviews.Add(review);reviews.Add(review);
+        }
+        return reviews;
+    });
+
     public List<StockMovement> StockMovements(){using var db=Open();return InventoryRows<StockMovement>(db,null,"inventory_movements");}
     public List<StockOperation> StockOperations()
     {
@@ -36,13 +77,14 @@ public sealed partial class Store
     static void StockDate(DateOnly date)=>Guard.Require(date!=default && date<=AllergenRules.Today(),"Enter an actual date, not a future stock event.");
     static void ReviewDate(bool reviewed,string evidence){if(reviewed)Guard.Text(evidence,"Date / shelf-life review evidence",2000);}
     static bool Usable(StockLot l,DateOnly date)=>l.DateReviewed && l.ReceivedOn<=date && (l.UseBy==null || l.UseBy>=date) && (l.UseBy==null || l.UseBy>=AllergenRules.Today());
-    static string LotStatus(StockLot l)=>l.UseBy<AllergenRules.Today()?"Expired":!l.DateReviewed?"Date review required":l.UseBy<=AllergenRules.Today().AddDays(3)?"Use-by approaching":l.UseBy==null?"Reviewed · no recorded use-by":"Available";
+    static string LotStatus(StockLot l)=>l.UseBy<AllergenRules.Today()?"Expired":!l.DateReviewed?"Date review required":l.UseBy<=AllergenRules.Today().AddDays(3)?(l.DateType=="best-before"?"Best-before approaching":"Use-by approaching"):l.UseBy==null?"Reviewed · no recorded use-by":"Available";
     sealed class InventoryContext
     {
         public List<StockLot> Lots;public List<StockMovement> Moves;public List<StockLocation> Locations;
+        public List<LotDateReview> NewReviews=[];public HashSet<string> PurchaseIds=[];
         public List<StockLot> NewLots=[];public List<StockMovement> NewMoves=[];
         readonly string operation,actor;
-        public InventoryContext(SqliteConnection db,SqliteTransaction tx,string id,string user){Lots=ReviewedLots(db,tx);Moves=InventoryRows<StockMovement>(db,tx,"inventory_movements");Locations=InventoryRows<StockLocation>(db,tx,"inventory_locations");operation=id;actor=user;}
+        public InventoryContext(SqliteConnection db,SqliteTransaction tx,string id,string user){Lots=ReviewedLots(db,tx);Moves=InventoryRows<StockMovement>(db,tx,"inventory_movements");Locations=InventoryRows<StockLocation>(db,tx,"inventory_locations");using var purchases=Command(db,tx,"SELECT id FROM inventory_operations WHERE type='purchase'");using var reader=purchases.ExecuteReader();while(reader.Read())PurchaseIds.Add(reader.GetString(0));operation=id;actor=user;}
         public StockLocation Location(string id)=>Locations.FirstOrDefault(l=>l.Id==id)??throw new ValidationException("Choose an existing stock location.");
         public StockLot Lot(string id)=>Lots.Concat(NewLots).FirstOrDefault(l=>l.Id==id)??throw new ValidationException("Stock lot not found.");
         public decimal Balance(string lot,string location)=>Moves.Concat(NewMoves).Where(m=>m.LotId==lot&&m.LocationId==location).Sum(m=>m.Quantity);
@@ -62,6 +104,11 @@ public sealed partial class Store
         if(reverses!=null){using var check=Command(db,tx,"SELECT count(*) FROM inventory_operations WHERE reverses=$id",("$id",reverses));Guard.Require((long)check.ExecuteScalar()! == 0,"This operation has already been reversed.");}
         var ctx=new InventoryContext(db,tx,id,actor);var result=perform(ctx);
         Execute(db,tx,"INSERT INTO inventory_operations VALUES($id,$type,$hash,$at,$actor,$body,$result,$reverses)",("$id",id),("$type",type),("$hash",hash),("$at",Now()),("$actor",actor),("$body",body),("$result",JsonSerializer.Serialize(result,Json)),("$reverses",(object?)reverses??DBNull.Value));
+        foreach(var review in ctx.NewReviews) {
+            var reviewBody=JsonSerializer.Serialize(review,Json);
+            Execute(db,tx,"INSERT INTO inventory_operations VALUES($id,'date-review',$hash,$at,$actor,$body,$body,NULL)",("$id",review.OperationId),("$hash",Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("date-review"+reviewBody)))),("$at",Now()),("$actor",actor),("$body",reviewBody));
+            Audit(db,tx,"inventory:date-review",review.LotId);
+        }
         foreach(var lot in ctx.NewLots)Execute(db,tx,"INSERT INTO inventory_lots VALUES($id,$kind,$item,$version,$operation,$body)",("$id",lot.Id),("$kind",lot.Kind),("$item",lot.ItemId),("$version",(object?)lot.RecipeVersion??DBNull.Value),("$operation",id),("$body",JsonSerializer.Serialize(lot,Json)));
         foreach(var move in ctx.NewMoves)Execute(db,tx,"INSERT INTO inventory_movements VALUES($seq,$operation,$lot,$location,$body)",("$seq",move.Sequence),("$operation",id),("$lot",move.LotId),("$location",move.LocationId),("$body",JsonSerializer.Serialize(move,Json)));
         if(input is PurchaseInput purchase)Execute(db,tx,"INSERT INTO record_dependencies VALUES('purchase',$id,'supplier',$supplier,$description)",("$id",id),("$supplier",purchase.SupplierId),("$description","Stock purchase: "+purchase.Reference+" "+id));
@@ -97,13 +144,13 @@ public sealed partial class Store
         foreach(var line in input.Lines)
         {
             var item=Get<Ingredient>("ingredient",line.IngredientId);Guard.Require(!item.Archived,"Restore the ingredient before receiving new stock.");
-            Guard.Require(line.Packs>0&&line.Packs<=1000000&&line.PackSize>0&&line.PackSize<=1000000,"Pack count and size must be positive, at most 1,000,000.");Guard.Require(line.PackLabel is "pack" or "case","Choose packs or cases.");Guard.Require(line.PacksPerCase>0&&line.PacksPerCase<=1000000,"Packs per case must be positive.");Guard.Amount(line.PackPrice,"Pack price");Guard.Amount(line.VatRate,"VAT rate",100);ReviewDate(line.DateReviewed,line.DateEvidence);
+            Guard.Require(line.Packs>0&&line.Packs<=1000000&&line.PackSize>0&&line.PackSize<=1000000,"Pack count and size must be positive, at most 1,000,000.");Guard.Require(line.PackLabel is "pack" or "case","Choose packs or cases.");Guard.Require(line.PacksPerCase>0&&line.PacksPerCase<=1000000,"Packs per case must be positive.");Guard.Amount(line.PackPrice,"Pack price");Guard.Amount(line.VatRate,"VAT rate",100);ValidateDateReview(new(input.OperationId,"",line.UseBy,line.DateReviewed,line.DateEvidence,line.DateType,line.ReviewSource,line.ReviewNotes));
             var count=line.Packs*(line.PackLabel=="case"?line.PacksPerCase:1);var quantity=count*Units.Convert(line.PackSize,line.Unit,item.BaseUnit);
             var price=new Price("",item.Id,supplier.Id,line.PackSize,line.Unit,line.PackPrice,line.VatRate,line.PriceIncludesVat,line.RecoverVat,"",input.Date,false);
             var unitCost=count*Costing.UsablePackCost(price)/quantity;
             var snapshot=new AllergenAssessment(item.AllergenInfo?.Contains??[],item.AllergenInfo?.MayContain??[],item.AllergenInfo==null?[item.Name]:[],EffectiveIngredient(item).AllergenInfo?.Verification!="verified"?[item.Name]:[],string.IsNullOrWhiteSpace(item.AllergenInfo?.CrossContactNotes)?[]:[item.AllergenInfo.CrossContactNotes],new(){["ingredient:"+item.Id]=item.Revision},PriceSource(item.Id));
-            var lot=new StockLot(Guid.NewGuid().ToString("N"),"ingredient",item.Id,item.Name,item.BaseUnit,null,input.OperationId,line.BatchReference,input.Date,line.UseBy,line.DateReviewed,line.DateEvidence,quantity,unitCost,Now(),snapshot,item,supplier);
-            ctx.NewLots.Add(lot);ctx.Move(lot,input.LocationId,quantity,"purchase-receipt",input.Date,input.Reference+" "+input.Notes);result.Add(lot);
+            var lot=new StockLot(Guid.NewGuid().ToString("N"),"ingredient",item.Id,item.Name,item.BaseUnit,null,input.OperationId,line.BatchReference,input.Date,line.UseBy,line.DateReviewed,line.DateEvidence,quantity,unitCost,Now(),snapshot,item,supplier,DateType:line.DateType,ReviewSource:line.ReviewSource,ReviewNotes:line.ReviewNotes);
+            ctx.NewLots.Add(lot);ctx.Move(lot,input.LocationId,quantity,"purchase-receipt",input.Date,input.Reference+" "+input.Notes+" "+line.Notes);result.Add(lot);
         }return result;
     },draft);
     public List<StockMovement> StockAction(string type,StockActionInput input,string actor="owner",WorkingDraft? draft=null)=>InventoryPost(type,input.OperationId,input,actor,ctx=>
@@ -122,7 +169,7 @@ public sealed partial class Store
     },draft);
     public List<StockMovement> ReverseStock(ReverseInput input,string actor="owner")=>InventoryPost("reversal",input.OperationId,input,actor,ctx=>
     {
-        Guard.Text(input.Reason,"Correction reason",2000);var original=StockOperations().FirstOrDefault(o=>o.Id==input.OriginalId)??throw new ValidationException("Operation not found.");Guard.Require(original.Type is not "sale-fulfilment", "Sale fulfilment cannot be reversed. Record an explained stock adjustment separately from any refund.");using(var sales=Open())using(var linked=Command(sales,null,"SELECT count(*) FROM sales_production_links WHERE production_id=$id",("$id",input.OriginalId)))Guard.Require((long)linked.ExecuteScalar()! ==0,"Production linked to a fulfilled order cannot be reversed. Record an explained stock adjustment instead.");Guard.Require(original.Type is not "reversal" and not "date-review","A reversal cannot itself be reversed; record a new explained adjustment.");
+        Guard.Text(input.Reason,"Correction reason",2000);var original=StockOperations().FirstOrDefault(o=>o.Id==input.OriginalId)??throw new ValidationException("Operation not found.");Guard.Require(original.Type is not "sale-fulfilment", "Sale fulfilment cannot be reversed. Record an explained stock adjustment separately from any refund.");using(var sales=Open())using(var linked=Command(sales,null,"SELECT count(*) FROM sales_production_links WHERE production_id=$id",("$id",input.OriginalId)))Guard.Require((long)linked.ExecuteScalar()! ==0,"Production linked to a fulfilled order cannot be reversed. Record an explained stock adjustment instead.");Guard.Require(original.Type is not "reversal" and not "date-review" and not "bulk-date-review","A reversal cannot itself be reversed; record a new explained adjustment.");
         foreach(var old in ctx.Moves.Where(m=>m.OperationId==input.OriginalId).Reverse().ToList())ctx.Move(ctx.Lot(old.LotId),old.LocationId,-old.Quantity,"reversal",AllergenRules.Today(),input.Reason+"; reverses "+input.OriginalId);
         return ctx.NewMoves.ToList();
     },reverses:input.OriginalId);

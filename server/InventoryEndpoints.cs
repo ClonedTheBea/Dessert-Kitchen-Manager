@@ -11,10 +11,12 @@ public static class InventoryEndpoints
         inventory.MapPost("/locations",(StockLocation input)=>{lock(gate)return store.AddLocation(input);});
         inventory.MapPost("/existing",(ExistingStockInput input)=>{lock(gate)return store.AddExistingStock(input);});
         inventory.MapPost("/purchase",(PurchaseInput input)=>{lock(gate)return store.Receive(input);});
+        inventory.MapPost("/purchase/draft/{id}/discard",(string id,PublishRequest request)=>{lock(gate){store.DiscardPurchaseDraft(id,request.Revision);return Results.Ok();}});
         inventory.MapPost("/production/preview",(ProductionInput input)=>{lock(gate)return store.PreviewProduction(input);});
         inventory.MapPost("/production",(ProductionInput input)=>{lock(gate)return store.Produce(input);});
         inventory.MapPost("/action/{type}",(string type,StockActionInput input)=>{lock(gate)return store.StockAction(type,input);});
         inventory.MapPost("/reverse",(ReverseInput input)=>{lock(gate)return store.ReverseStock(input);});
+        inventory.MapPost("/date-review/bulk",(BulkDateReview input)=>{lock(gate)return store.ReviewLots(input);});
         inventory.MapPost("/date-review",(LotDateReview input)=>{lock(gate)return store.ReviewLot(input);});
         inventory.MapPost("/stocktakes/start",(StocktakeStart input)=>{lock(gate)return store.StartStocktake(input);});
         inventory.MapPost("/stocktakes/finalise",(StocktakeInput input)=>{lock(gate)return store.FinaliseStocktake(input);});
@@ -32,6 +34,7 @@ public static class InventoryEndpoints
             {
                 var d=store.Draft("inventory-"+kind,id)??throw new ValidationException("Enter and save the operation draft first.");
                 if(d.Revision!=request.Revision)throw new ConflictException("The draft changed in another window. Reopen it before confirming.");
+                if(d.Result is JsonElement resultBody && resultBody.ValueKind==JsonValueKind.Object && resultBody.TryGetProperty("discarded",out var discarded) && discarded.GetBoolean())throw new ValidationException("This purchase draft was discarded. Start a new purchase.");
                 if(d.Result!=null)return Results.Json(d.Result);
                 object result=kind switch{
                     "existing"=>store.AddExistingStock(d.Body.Deserialize<ExistingStockInput>(Store.Json)!,draft:d),

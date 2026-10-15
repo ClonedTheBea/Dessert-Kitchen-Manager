@@ -39,7 +39,7 @@ for (const width of [1440, 390])
     }
     await expect(page.locator(".sidebar nav button")).toHaveText([
       "Home",
-      "Recipes",
+      "Recipes & Ingredients",
       "Stock",
       "Money",
     ]);
@@ -71,16 +71,20 @@ for (const width of [1440, 390])
     await page.getByRole("button", { name: /Add ingredient Supplier/ }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await review("ingredient");
+    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Close dialog" }).click();
     await review("ingredients");
     await page.locator(".table-link").first().click();
     await review("ingredient-edit");
+    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Close dialog" }).click();
     await page.getByRole("button", { name: "Update Price" }).first().click();
     await review("price");
+    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Close dialog" }).click();
     await page.getByRole("button", { name: "Suppliers", exact: true }).click();
     await review("suppliers");
+    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Close dialog" }).click();
     await navigate(page, "Recipes");
     await review("recipes");
@@ -100,11 +104,13 @@ for (const width of [1440, 390])
     await page.getByRole("button", { name: /Record purchase Put/ }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await review("purchase");
+    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Close dialog" }).click();
     await navigate(page, "Home");
     await page.getByRole("button", { name: /Make a batch From/ }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await review("production");
+    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Close dialog" }).click();
     await navigate(page, "Money");
     await review("money");

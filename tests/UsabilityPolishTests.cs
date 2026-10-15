@@ -59,7 +59,8 @@ public class UsabilityPolishTests
             Assert.Throws<ValidationException>(()=>s.AddExistingStock(bad));
         Assert.Empty(s.StockOperations());
         var lot=s.AddExistingStock(valid with{DateReviewed=false,DateEvidence=""});Assert.Equal(0,State(s).GetProperty("balances")[0].GetProperty("usable").GetDecimal());Assert.Throws<ValidationException>(()=>s.StockAction("waste",new(Id(),lot.Id,"home",1,"personal-consumption")));
-        s.ReviewLot(new(Id(),lot.Id,Today.AddDays(-1),true,"Expired packet"));Assert.Equal("Expired",State(s).GetProperty("balances")[0].GetProperty("status").GetString());Assert.Equal(0,State(s).GetProperty("balances")[0].GetProperty("usable").GetDecimal());
+        Assert.Throws<ValidationException>(()=>s.ReviewLot(new(Id(),lot.Id,Today.AddDays(-1),true,"Expired packet")));
+        s.ReviewLot(new(Id(),lot.Id,Today.AddDays(-1),false,"Expired packet"));Assert.Equal("Expired",State(s).GetProperty("balances")[0].GetProperty("status").GetString());Assert.Equal(0,State(s).GetProperty("balances")[0].GetProperty("usable").GetDecimal());
     }
     [Fact] public void UnvaluedLotsSurviveBackupRestoreWithTheirAuditTrail()
     {
