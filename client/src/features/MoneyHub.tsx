@@ -32,7 +32,7 @@ export default function MoneyHub(
       {tab === "forecast" ? (
         <MoneyWorkspace {...props} />
       ) : tab === "orders" ? (
-        <SalesWorkspace initialNew={props.initialAction === "new-order"} />
+        <SalesWorkspace recipes={props.state.recipes} initialNew={props.initialAction === "new-order"} />
       ) : tab === "sales" ? (
         <SalesReport />
       ) : (

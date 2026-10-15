@@ -64,3 +64,7 @@ Synthetic test data only; 1440px desktop and 390px mobile.
 - A newly created ingredient remains in the ingredient catalogue even if its purchase draft is subsequently discarded. Cancelling a receipt does not delete catalogue records.
 
 Sprint 4 has not been started.
+
+## Orders category compatibility fix
+
+Orders now resolves category metadata from the same saved recipe state as Financial Overview. An older running sales API omitting the category field therefore no longer groups every product under Other. Sales products, channel prices and basket logic remain unchanged. The frontend build and eight focused browser checks passed, including simulated older API responses at 1440px and 390px. Restart the launcher after backend updates and refresh the browser.

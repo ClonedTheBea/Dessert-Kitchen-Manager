@@ -1,3 +1,4 @@
+import type { State } from "../types";
 import ProductCategories from "../components/ProductCategories";
 import { useEffect, useState } from "react";
 import { api, money } from "../api";
@@ -6,8 +7,10 @@ import { N, S, T } from "./BusinessSettings";
 const uid = () => crypto.randomUUID();
 export default function SalesWorkspace({
   initialNew = false,
+  recipes,
 }: {
   initialNew?: boolean;
+  recipes: State["recipes"];
 }) {
   const [orders, O] = useState<any[]>([]),
     [catalogue, C] = useState<any>(),
@@ -127,7 +130,10 @@ export default function SalesWorkspace({
               />
               <T label="Search order products" value={search} onChange={Q} />
               <ProductCategories
-                products={catalogue.products}
+                products={catalogue.products.map((p: any) => {
+                  const recipe = recipes.find(v => v.recipe.id === p.id)?.recipe;
+                  return { ...p, category: recipe ? recipe.category : p.category };
+                })}
                 search={search}
                 render={(p: any) => (
                   <button
